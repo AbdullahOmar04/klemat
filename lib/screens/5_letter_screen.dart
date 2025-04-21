@@ -182,15 +182,16 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
             color: const Color.fromARGB(94, 131, 131, 131),
             borderRadius: BorderRadius.all(Radius.circular(10)),
             border: Border.all(
-              width: 60,
+              width: 1.5,
               color: Theme.of(context).colorScheme.surface,
             ),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.timer),
-              const SizedBox(width: 10),
-              Text(_gameTimer.formattedTime),
+              Icon(Icons.timer, size: 25),
+              const SizedBox(width: 5),
+              Text(_gameTimer.formattedTime, style: TextStyle(fontSize: 15)),
             ],
           ),
         ),
@@ -548,7 +549,8 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
         }
         ////////////
       });
-      showDialog(
+      showDefinitionDialog(context, _correctWord);
+      /*showDialog(
         context: context,
         builder:
             (context) => AlertDialog(
@@ -592,12 +594,11 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
                 ),
               ),
             ),
-      );
+      );*/
     } else {
       winStreak = 0;
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         _guessedLetter = _controllers[i].text;
-
         if (_guessedLetter == _deconstructedCorrectWord[j]) {
           setState(() {
             _fillColors[i] = Theme.of(context).colorScheme.onPrimary;

@@ -25,7 +25,7 @@ class CustomKeyboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;
-    double keyboardHeight = screenHeight * 0.25;
+    double keyboardHeight = screenHeight * 0.23;
     return Container(
       height: keyboardHeight,
       padding: const EdgeInsets.all(5.0),

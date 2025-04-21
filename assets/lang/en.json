@@ -23,5 +23,7 @@
     "correct_word": "The correct word is: ",
     "choose_lang": "Language",
     "daily_mode": "Daily Mode",
-    "shop" : "Shop"
+    "shop" : "Shop",
+    "def_not_found": "Could not find definition"
+
   }

@@ -191,9 +191,9 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
           ),
           child: Row(
             children: [
-              Icon(Icons.timer),
-              const SizedBox(width: 10),
-              Text(_gameTimer.formattedTime),
+              Icon(Icons.timer, size: 25),
+              const SizedBox(width: 5),
+              Text(_gameTimer.formattedTime, style: TextStyle(fontSize: 15)),
             ],
           ),
         ),
@@ -550,51 +550,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
         }
         ////////////
       });
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              title: Text(
-                AppLocalizations.of(context).translate('correct_title'),
-                textAlign: TextAlign.center,
-              ),
-              content: RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: AppLocalizations.of(
-                        context,
-                      ).translate('learn_word'),
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    TextSpan(
-                      text: _correctWord,
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.blue.shade300,
-                      ),
-                      recognizer:
-                          TapGestureRecognizer()
-                            ..onTap = () {
-                              launchUrl(
-                                Uri.parse(
-                                  'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?',
-                                ),
-                              );
-                            },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-      );
+      showDefinitionDialog(context, _correctWord);
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;

@@ -20,7 +20,6 @@ class FourLetterScreen extends StatefulWidget {
 
 class _FourLetterScreen extends State<FourLetterScreen>
     with TickerProviderStateMixin {
-
   late GameTimer _gameTimer;
 
   bool gameWon = false;
@@ -33,8 +32,10 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
   int _currentRow = 0;
 
-  final List<TextEditingController> _controllers =
-      List.generate(28, (index) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    28,
+    (index) => TextEditingController(),
+  );
 
   List<Color> _fillColors = List.generate(28, (index) => Colors.transparent);
 
@@ -64,12 +65,10 @@ class _FourLetterScreen extends State<FourLetterScreen>
         vsync: this,
       );
 
-      final animation = Tween<double>(begin: 0, end: 10).animate(
-        CurvedAnimation(
-          parent: controller,
-          curve: Curves.elasticIn,
-        ),
-      );
+      final animation = Tween<double>(
+        begin: 0,
+        end: 10,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.elasticIn));
 
       _shakeControllers.add(controller);
       _shakeAnimations.add(animation);
@@ -82,23 +81,22 @@ class _FourLetterScreen extends State<FourLetterScreen>
       );
 
       final animation = Tween<double>(begin: 1.0, end: 1.1).animate(
-        CurvedAnimation(
-          parent: controller,
-          curve: Curves.easeOut,
-        ),
+        CurvedAnimation(parent: controller, curve: Curves.easeOut),
       )..addStatusListener((status) {
-          if (status == AnimationStatus.completed) {
-            controller.reverse(); // Return to normal size after popping up
-          }
-        });
+        if (status == AnimationStatus.completed) {
+          controller.reverse(); // Return to normal size after popping up
+        }
+      });
 
       _scaleControllers.add(controller);
       _scaleAnimations.add(animation);
     }
 
-    _gameTimer = GameTimer(onTick: () {
-      setState(() {});
-    });
+    _gameTimer = GameTimer(
+      onTick: () {
+        setState(() {});
+      },
+    );
     _gameTimer.start();
   }
 
@@ -131,10 +129,12 @@ class _FourLetterScreen extends State<FourLetterScreen>
   }
 
   Future<void> _loadWordsFromJson() async {
-    final jsonString = await rootBundle
-        .loadString('assets/words/4_letters/4_letter_words_all.json');
-    final jsonString2 = await rootBundle
-        .loadString('assets/words/4_letters/4_letter_answers.json');
+    final jsonString = await rootBundle.loadString(
+      'assets/words/4_letters/4_letter_words_all.json',
+    );
+    final jsonString2 = await rootBundle.loadString(
+      'assets/words/4_letters/4_letter_answers.json',
+    );
 
     final wordsList = await parseWords(jsonString, 'words');
     final cWordsList = await parseWords(jsonString2, 'c_words');
@@ -153,7 +153,6 @@ class _FourLetterScreen extends State<FourLetterScreen>
       _correctWord = c_words[random.nextInt(woords.length)];
     });
   }
-
 
   @override
   void dispose() {
@@ -181,19 +180,17 @@ class _FourLetterScreen extends State<FourLetterScreen>
           padding: EdgeInsets.all(5),
           decoration: BoxDecoration(
             color: const Color.fromARGB(94, 131, 131, 131),
-            borderRadius: BorderRadius.all(
-              Radius.circular(10),
-            ),
+            borderRadius: BorderRadius.all(Radius.circular(10)),
             border: Border.all(
-                width: 60, color: Theme.of(context).colorScheme.surface,),
+              width: 60,
+              color: Theme.of(context).colorScheme.surface,
+            ),
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.timer,
-              ),
-              const SizedBox(width: 10),
-              Text(_gameTimer.formattedTime),
+              Icon(Icons.timer, size: 25),
+              const SizedBox(width: 5),
+              Text(_gameTimer.formattedTime, style: TextStyle(fontSize: 15)),
             ],
           ),
         ),
@@ -217,9 +214,10 @@ class _FourLetterScreen extends State<FourLetterScreen>
               builder: (context, child) {
                 return Transform.translate(
                   offset: Offset(
-                      _shakeAnimations[i].value *
-                          sin(_shakeAnimations[i].value * 2 * pi),
-                      0),
+                    _shakeAnimations[i].value *
+                        sin(_shakeAnimations[i].value * 2 * pi),
+                    0,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -250,7 +248,9 @@ class _FourLetterScreen extends State<FourLetterScreen>
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.grey, // or use Color with some opacity, e.g., Colors.grey.withOpacity(0.5)
+                                        color:
+                                            Colors
+                                                .grey, // or use Color with some opacity, e.g., Colors.grey.withOpacity(0.5)
                                       ),
                                     ),
                                   TextField(
@@ -268,12 +268,18 @@ class _FourLetterScreen extends State<FourLetterScreen>
                                     decoration: InputDecoration(
                                       enabledBorder: OutlineInputBorder(
                                         borderSide: BorderSide(
-                                          color: Theme.of(context).colorScheme.onSurface,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
                                         ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderSide: BorderSide(
-                                          color: Theme.of(context).colorScheme.onSurface,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
                                         ),
                                       ),
                                       fillColor: _fillColors[i * 4 + j],
@@ -325,28 +331,30 @@ class _FourLetterScreen extends State<FourLetterScreen>
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _revealHint() {
-  int startIndex = _currentRow * 4;
-  int endIndex = startIndex + 3;
-  List<int> availableIndices = [];
+    int startIndex = _currentRow * 4;
+    int endIndex = startIndex + 3;
+    List<int> availableIndices = [];
 
-  for (int i = startIndex; i <= endIndex; i++) {
-    if (!revealedIndices.contains(i)) {
-      availableIndices.add(i);
+    for (int i = startIndex; i <= endIndex; i++) {
+      if (!revealedIndices.contains(i)) {
+        availableIndices.add(i);
+      }
+    }
+
+    if (!gameWon && availableIndices.isNotEmpty) {
+      int randomIndex =
+          availableIndices[Random().nextInt(availableIndices.length)];
+      String letter = _correctWord[randomIndex % 4];
+
+      setState(() {
+        _hintLetters[randomIndex] = letter;
+        _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
+        revealedIndices.add(randomIndex);
+      });
     }
   }
 
-  if (!gameWon && availableIndices.isNotEmpty) {
-    int randomIndex = availableIndices[Random().nextInt(availableIndices.length)];
-    String letter = _correctWord[randomIndex % 4];
-
-    setState(() {
-      _hintLetters[randomIndex] = letter;
-      _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
-      revealedIndices.add(randomIndex);
-    });
-  }
-}
-/////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////
   ///
   void _updateFillColors() {
     final newFillColors = List<Color>.from(_fillColors); // Copy current list
@@ -373,7 +381,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
     });
   }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _updateKeyColors() {
     final newKeyColors = <String, Color>{};
@@ -405,7 +413,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
     });
   }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _insertText(String myText) {
     if ((_currentTextfield < 28 && _fiveLettersStop < 4) && gameWon == false) {
@@ -421,7 +429,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
     }
   }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _backspace() {
     if ((_currentTextfield > 0 && _fiveLettersStop > 0) && gameWon == false) {
@@ -434,7 +442,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
     }
   }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _submit() {
     print(_correctWord);
@@ -453,9 +461,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
             textAlign: TextAlign.center,
           ),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(5),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
           margin: EdgeInsets.only(
             bottom: MediaQuery.of(context).size.height - 100,
             right: 20,
@@ -502,9 +508,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
             textAlign: TextAlign.center,
           ),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(5),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
           margin: EdgeInsets.only(
             bottom: MediaQuery.of(context).size.height - 100,
             right: 20,
@@ -545,40 +549,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
         }
         ////////////
       });
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          title: Text(
-            AppLocalizations.of(context).translate('correct_title'),
-            textAlign: TextAlign.center,
-          ),
-          content: RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              children: [
-                TextSpan(
-                    text: AppLocalizations.of(context).translate('learn_word'),
-                    style: TextStyle(
-                        fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface)),
-                TextSpan(
-                    text: _correctWord,
-                    style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.blue.shade300),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () {
-                        launchUrl(Uri.parse(
-                            'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?'));
-                      }),
-              ],
-            ),
-          ),
-        ),
-      );
+      showDefinitionDialog(context, _correctWord);
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
@@ -629,40 +600,48 @@ class _FourLetterScreen extends State<FourLetterScreen>
       if (_currentTextfield == 28 && gameWon == false) {
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            title: Text(
-              AppLocalizations.of(context).translate('incorrect'),
-              textAlign: TextAlign.center,
-            ),
-            content: RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text:
-                        AppLocalizations.of(context).translate('correct_word'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 16,
-                    ),
-                  ),
-                  TextSpan(
-                      text: _correctWord,
-                      style: TextStyle(
+          builder:
+              (context) => AlertDialog(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                title: Text(
+                  AppLocalizations.of(context).translate('incorrect'),
+                  textAlign: TextAlign.center,
+                ),
+                content: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: AppLocalizations.of(
+                          context,
+                        ).translate('correct_word'),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 16,
+                        ),
+                      ),
+                      TextSpan(
+                        text: _correctWord,
+                        style: TextStyle(
                           decoration: TextDecoration.underline,
                           fontWeight: FontWeight.bold,
                           fontSize: 20,
-                          color: Colors.blue.shade300),
-                      recognizer: TapGestureRecognizer()
-                        ..onTap = () {
-                          launchUrl(Uri.parse(
-                              'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?'));
-                        }),
-                ],
+                          color: Colors.blue.shade300,
+                        ),
+                        recognizer:
+                            TapGestureRecognizer()
+                              ..onTap = () {
+                                launchUrl(
+                                  Uri.parse(
+                                    'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?',
+                                  ),
+                                );
+                              },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
         );
       } else if (gameWon == true) {}
     }
@@ -672,5 +651,5 @@ class _FourLetterScreen extends State<FourLetterScreen>
     _currentRow++;
   }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
