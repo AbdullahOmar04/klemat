@@ -182,11 +182,12 @@ class _FourLetterScreen extends State<FourLetterScreen>
             color: const Color.fromARGB(94, 131, 131, 131),
             borderRadius: BorderRadius.all(Radius.circular(10)),
             border: Border.all(
-              width: 60,
+              width: 1.5,
               color: Theme.of(context).colorScheme.surface,
             ),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.timer, size: 25),
               const SizedBox(width: 5),

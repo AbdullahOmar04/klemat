@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MainMenu extends StatefulWidget {
   const MainMenu({super.key});
-  
+
   @override
   State<MainMenu> createState() => _MainMenuState();
 }
@@ -56,6 +56,12 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          IconButton(
+            onPressed: () {
+              showStatsDialog(context);
+            },
+            icon: Icon(Icons.analytics),
+          ),
           GestureDetector(
             child: coins(context, diamondAmount),
             onTap: () {
@@ -71,10 +77,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Image.asset(
-                'assets/images/Mountains.png',
-                height: 200,
-              ),
+              child: Image.asset('assets/images/Mountains.png', height: 200),
             ),
             longBuildModeButton(
               context,
@@ -84,9 +87,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
               () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const DailyMode(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const DailyMode()),
                 );
               },
             ),
@@ -102,10 +103,11 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     const Color.fromARGB(255, 0, 125, 179),
                     () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FiveLetterScreen(),
-                          ));
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FiveLetterScreen(),
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(width: 10),
@@ -116,10 +118,11 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     const Color.fromARGB(255, 255, 114, 20),
                     () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => FourLetterScreen(),
-                          ));
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FourLetterScreen(),
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(width: 10),
@@ -130,10 +133,11 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     const Color.fromARGB(255, 104, 8, 148),
                     () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ThreeLetterScreen(),
-                          ));
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ThreeLetterScreen(),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -145,10 +149,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
               children: [
                 smallButton(
                   context,
-                  const Icon(
-                    Icons.settings,
-                    color: Colors.white,
-                  ),
+                  const Icon(Icons.settings, color: Colors.white),
                   const Color.fromARGB(255, 206, 206, 206),
                   Colors.grey.shade700,
                   () => showSettingsDialog(context, themeNotifier),
@@ -156,11 +157,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                 const SizedBox(width: 10),
                 smallButton(
                   context,
-                  const Icon(
-                    Icons.emoji_events,
-                    color: Colors.white,
-                    size: 35,
-                  ),
+                  const Icon(Icons.emoji_events, color: Colors.white, size: 35),
                   const Color.fromARGB(255, 189, 255, 250),
                   const Color.fromARGB(255, 0, 185, 185),
                   () => challenges(context),
@@ -168,10 +165,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                 const SizedBox(width: 10),
                 smallButton(
                   context,
-                  const Icon(
-                    Icons.storefront_outlined,
-                    color: Colors.white,
-                  ),
+                  const Icon(Icons.storefront_outlined, color: Colors.white),
                   const Color.fromARGB(255, 255, 169, 163),
                   const Color.fromARGB(255, 255, 47, 32),
                   () => openShop(context),
@@ -184,4 +178,3 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     );
   }
 }
-

@@ -175,9 +175,9 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        centerTitle: true,
         title: Container(
           padding: EdgeInsets.all(5),
+          width: 85,
           decoration: BoxDecoration(
             color: const Color.fromARGB(94, 131, 131, 131),
             borderRadius: BorderRadius.all(Radius.circular(10)),
@@ -197,6 +197,12 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         actions: [
+          IconButton(
+            onPressed: () {
+              showStatsDialog(context);
+            },
+            icon: Icon(Icons.analytics),
+          ),
           GestureDetector(
             child: coins(context, diamondAmount),
             onTap: () {
@@ -444,7 +450,7 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  void _submit() {
+  void _submit() async {
     print(_correctWord);
     if (_currentTextfield % 5 != 0 || _fiveLettersStop != 5) {
       _vibrateTwice();
@@ -535,7 +541,7 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
           winStreak++;
         } else {
           setState(() {
-            diamondAmount += 50;
+            awardDiamonds(50);
           });
         }
         ////////////
@@ -543,58 +549,14 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
           if (timeWinStreak == 0) {
             timeWinStreak++;
             setState(() {
-              diamondAmount += 30;
+              awardDiamonds(30);
             });
           }
         }
         ////////////
       });
       showDefinitionDialog(context, _correctWord);
-      /*showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              title: Text(
-                AppLocalizations.of(context).translate('correct_title'),
-                textAlign: TextAlign.center,
-              ),
-              content: RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: AppLocalizations.of(
-                        context,
-                      ).translate('learn_word'),
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    TextSpan(
-                      text: _correctWord,
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.blue.shade300,
-                      ),
-                      recognizer:
-                          TapGestureRecognizer()
-                            ..onTap = () {
-                              launchUrl(
-                                Uri.parse(
-                                  'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?',
-                                ),
-                              );
-                            },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-      );*/
+      await GameStats.recordGame(won: gameWon, guesses: _currentRow + 1);
     } else {
       winStreak = 0;
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
