@@ -648,7 +648,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
           awardDiamonds(150);
         }
       });
-      return _correctWordDialog();
+      showDefinitionDialog(context, _dailyWord);
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         _guessedLetter = _controllers[i].text;
@@ -697,7 +697,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       }
 
       if (_currentTextfield == 35 && gameWon == false) {
-        _incorrectWordDialog;
+        _incorrectWordDialog();
       } else if (gameWon == true) {}
     }
 
@@ -737,52 +737,6 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                       decoration: TextDecoration.underline,
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
-                      color: Colors.blue.shade300,
-                    ),
-                    recognizer:
-                        TapGestureRecognizer()
-                          ..onTap = () {
-                            launchUrl(
-                              Uri.parse(
-                                'https://www.almaany.com/ar/dict/ar-ar/$_dailyWord/?',
-                              ),
-                            );
-                          },
-                  ),
-                ],
-              ),
-            ),
-          ),
-    );
-  }
-
-  void _correctWordDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            title: Text(
-              AppLocalizations.of(context).translate('correct_title'),
-              textAlign: TextAlign.center,
-            ),
-            content: RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: AppLocalizations.of(context).translate('learn_word'),
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  TextSpan(
-                    text: _dailyWord,
-                    style: TextStyle(
-                      decoration: TextDecoration.underline,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
                       color: Colors.blue.shade300,
                     ),
                     recognizer:

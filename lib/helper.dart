@@ -16,6 +16,7 @@ int winStreak = 0;
 int dailyWinStreak = 0;
 int timeWinStreak = 0;
 int diamondAmount = 0;
+int currentFiveModeLevel = 1;
 
 class Challenge {
   final String title;
@@ -155,7 +156,6 @@ Future<void> awardDiamonds(int amount) async {
   await prefs.setInt('diamondAmount', currentAmount);
 }
 
-
 class GameStats {
   static const _playedKey = 'stats_played';
   static const _winsKey = 'stats_wins';
@@ -165,7 +165,10 @@ class GameStats {
   static String _distKey(int i) => 'stats_dist_$i';
 
   /// Call this once at the end of every round:
-  static Future<void> recordGame({required bool won, required int guesses}) async {
+  static Future<void> recordGame({
+    required bool won,
+    required int guesses,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
 
     // overall games played
@@ -194,11 +197,13 @@ class GameStats {
 
   static Future<_StatsSnapshot> load() async {
     final p = await SharedPreferences.getInstance();
-    final played  = p.getInt(_playedKey) ?? 0;
-    final wins    = p.getInt(_winsKey)   ?? 0;
-    final current = p.getInt(_currentKey)?? 0;
-    final maxs    = p.getInt(_maxKey)    ?? 0;
-    final dist = <int,int>{ for (var i=1; i<=6; i++) i: p.getInt(_distKey(i)) ?? 0 };
+    final played = p.getInt(_playedKey) ?? 0;
+    final wins = p.getInt(_winsKey) ?? 0;
+    final current = p.getInt(_currentKey) ?? 0;
+    final maxs = p.getInt(_maxKey) ?? 0;
+    final dist = <int, int>{
+      for (var i = 1; i <= 6; i++) i: p.getInt(_distKey(i)) ?? 0,
+    };
     return _StatsSnapshot(
       played: played,
       wins: wins,
@@ -211,7 +216,7 @@ class GameStats {
 
 class _StatsSnapshot {
   final int played, wins, currentStreak, maxStreak;
-  final Map<int,int> distribution;
+  final Map<int, int> distribution;
   _StatsSnapshot({
     required this.played,
     required this.wins,
@@ -219,85 +224,107 @@ class _StatsSnapshot {
     required this.maxStreak,
     required this.distribution,
   });
-  double get winPct => played>0 ? wins/played * 100 : 0;
+  double get winPct => played > 0 ? wins / played * 100 : 0;
 }
-
 
 Future<void> showStatsDialog(BuildContext context) async {
   final snap = await GameStats.load();
 
   showDialog(
     context: context,
-    builder: (_) => AlertDialog(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      title: Text('Statistics', style: Theme.of(context).textTheme.headlineSmall),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              _statTile('${snap.played}',   'Games\nPlayed'),
-              _statTile('${snap.winPct.toStringAsFixed(0)}%', 'Win\n  %'),
-              _statTile('${snap.currentStreak}', 'Current\n Streak'),
-              _statTile('${snap.maxStreak}',     '  Max\nStreak'),
-            ]),
-            const SizedBox(height: 20),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Guess Distribution', style: Theme.of(context).textTheme.labelLarge),
+    builder:
+        (_) => AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text(
+            'Statistics',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _statTile('${snap.played}', 'Games\nPlayed'),
+                    _statTile('${snap.winPct.toStringAsFixed(0)}%', 'Win\n  %'),
+                    _statTile('${snap.currentStreak}', 'Current\n Streak'),
+                    _statTile('${snap.maxStreak}', '  Max\nStreak'),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Guess Distribution',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (int i = 1; i <= 6; i++)
+                  _buildBarRow(context, i, snap.distribution[i]!, snap.played),
+              ],
             ),
-            const SizedBox(height: 8),
-            for (int i = 1; i <= 6; i++)
-              _buildBarRow(context, i, snap.distribution[i]!, snap.played),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Close'),
+            ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('Close'),
-        )
-      ],
-    ),
   );
 }
 
 Widget _statTile(String value, String label) {
   return Column(
     children: [
-      Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      ),
       Text(label, style: const TextStyle(fontSize: 12)),
     ],
   );
 }
 
-Widget _buildBarRow(BuildContext context, int guessCount, int count, int played) {
+Widget _buildBarRow(
+  BuildContext context,
+  int guessCount,
+  int count,
+  int played,
+) {
   final fraction = played > 0 ? count / played : 0.0;
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       children: [
-        SizedBox(width: 20, child: Text('$guessCount', textAlign: TextAlign.right)),
+        SizedBox(
+          width: 20,
+          child: Text('$guessCount', textAlign: TextAlign.right),
+        ),
         const SizedBox(width: 8),
         Expanded(
-          child: Stack(children: [
-            Container(
-              height: 20,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            FractionallySizedBox(
-              widthFactor: fraction,
-              child: Container(
+          child: Stack(
+            children: [
+              Container(
                 height: 20,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
-            )
-          ]),
+              FractionallySizedBox(
+                widthFactor: fraction,
+                child: Container(
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(width: 8),
         Text('$count'),
@@ -823,11 +850,9 @@ class _HintedTextFieldState extends State<HintedTextField> {
 
   @override
   Widget build(BuildContext context) {
-    // The idea is to stack a hint Text behind the TextField.
     return Stack(
       alignment: Alignment.center,
       children: [
-        // The hint text is visible only when the field is empty.
         if (widget.controller.text.isEmpty)
           Text(
             widget.hint,
@@ -835,7 +860,6 @@ class _HintedTextFieldState extends State<HintedTextField> {
                 widget.textStyle ??
                 TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 24),
           ),
-        // The actual TextField on top.
         TextField(
           controller: widget.controller,
           style:
@@ -843,7 +867,6 @@ class _HintedTextFieldState extends State<HintedTextField> {
               const TextStyle(color: Colors.black, fontSize: 24),
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
-            // Do not use hintText here—the hint is drawn as a separate widget.
             hintText: '',
             contentPadding: EdgeInsets.all(8),
           ),
@@ -952,5 +975,17 @@ void showDefinitionDialog(BuildContext context, String word) {
             );
           },
         ),
+  );
+}
+
+void levelsMap(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(child: Container(child: Image.network("https://as1.ftcdn.net/jpg/04/33/56/10/1000_F_433561046_ZukvohmWL49nY8fSDiG70zw3pNbMuRnK.jpg"),),),
+      );
+    },
   );
 }

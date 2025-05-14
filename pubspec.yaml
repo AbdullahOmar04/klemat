@@ -7,6 +7,8 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
+  firebase_auth: ^5.5.3
+  firebase_core: ^3.13.0
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -33,6 +35,7 @@ flutter:
     - assets/words/3_letters/3_letter_words_all.json
     - assets/words/3_letters/3_letter_answers.json
     - assets/images/Mountains.png
+    - assets/images/locked.png
     - assets/lang/en.json
     - assets/lang/ar.json
 

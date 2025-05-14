@@ -1,7 +1,8 @@
-import 'package:klemat/screens/main_menu.dart';
+import 'package:klemat/screens/login.dart';
+import 'package:firebase_core/firebase_core.dart';
+//import 'package:klemat/screens/main_menu.dart';
 import 'package:klemat/themes/theme_provider.dart';
 import 'package:klemat/themes/themes.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:klemat/themes/app_localization.dart';
@@ -10,6 +11,7 @@ import 'package:klemat/helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeNotifier(),
@@ -61,7 +63,7 @@ class _MyAppState extends State<MyApp> {
             Locale('en', 'US'),
             Locale('ar', 'SA'),
           ],
-          home: MainMenu(),
+          home: LoginPage(),
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeNotifier.themeMode,

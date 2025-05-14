@@ -3,6 +3,7 @@ import 'package:klemat/screens/3_letter_screen.dart';
 import 'package:klemat/screens/4_letter_screen.dart';
 import 'package:klemat/screens/5_letter_screen.dart';
 import 'package:klemat/screens/daily_word.dart';
+import 'package:klemat/screens/5_level_map.dart';
 import 'package:klemat/themes/app_localization.dart';
 import 'package:klemat/themes/theme_provider.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,9 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MainMenu extends StatefulWidget {
-  const MainMenu({super.key});
+  final String username;
+
+  const MainMenu({super.key, required this.username});
 
   @override
   State<MainMenu> createState() => _MainMenuState();
@@ -105,7 +108,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => FiveLetterScreen(),
+                          builder: (context) => LevelMapPage(currentFiveModeLevel),
                         ),
                       );
                     },

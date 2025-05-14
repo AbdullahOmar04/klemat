@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "224572536525",
+    "project_id": "klemat-67b2a",
+    "storage_bucket": "klemat-67b2a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:224572536525:android:32bbf48b98f8de5c191b84",
+        "android_client_info": {
+          "package_name": "com.example.klemat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvSmw_wOjuBUgjkws9_4Kfnf0urO9WF_g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
