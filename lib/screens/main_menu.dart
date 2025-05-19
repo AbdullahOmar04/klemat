@@ -1,14 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
-import 'package:klemat/screens/3_letter_screen.dart';
-import 'package:klemat/screens/4_letter_screen.dart';
-import 'package:klemat/screens/5_letter_screen.dart';
 import 'package:klemat/screens/daily_word.dart';
-import 'package:klemat/screens/5_level_map.dart';
+import 'package:klemat/screens/leaderboard.dart';
+import 'package:klemat/screens/level_map.dart';
+import 'package:klemat/screens/library.dart';
+import 'package:klemat/screens/login.dart';
 import 'package:klemat/themes/app_localization.dart';
 import 'package:klemat/themes/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class MainMenu extends StatefulWidget {
   final String username;
@@ -21,22 +21,24 @@ class MainMenu extends StatefulWidget {
 
 class _MainMenuState extends State<MainMenu> with RouteAware {
   bool isHardMode = false;
+  late int diamonds = 0;
+  final userData = UserDataService();
 
   @override
   void initState() {
     super.initState();
+    _loadUserData();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     routeObserver.subscribe(this, ModalRoute.of(context)!);
-    _loadDiamondCount();
   }
 
   @override
   void didPopNext() {
-    _loadDiamondCount();
+    _loadUserData();
   }
 
   @override
@@ -45,33 +47,144 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     super.dispose();
   }
 
-  Future<void> _loadDiamondCount() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> _loadUserData() async {
+    final amount = await userData.loadDiamonds();
+    final streaks = await userData.loadStreaks();
+    final stats = await userData.loadStats();
+
     setState(() {
-      diamondAmount = prefs.getInt('diamondAmount') ?? 0;
+      diamonds = amount;
+      winStreak = streaks['winStreak'] ?? 0;
+      dailyWinStreak = streaks['dailyWinStreak'] ?? 0;
+      timeWinStreak = streaks['timeWinStreak'] ?? 0;
+
+      GameStatsSnapshot.played = stats['played'] ?? 0;
+      GameStatsSnapshot.wins = stats['wins'] ?? 0;
+      GameStatsSnapshot.currentStreak = stats['currentStreak'] ?? 0;
+      GameStatsSnapshot.maxStreak = stats['maxStreak'] ?? 0;
+      GameStatsSnapshot.distribution = Map<int, int>.from(
+        stats['distribution'] ?? {},
+      );
     });
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => LoginPage()),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
-
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LeaderboardPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.leaderboard, color: Colors.white),
+              label: Text(
+                AppLocalizations.of(context).translate("leaderboard"),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 7,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                elevation: 5,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        leading: Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+            );
+          },
+        ),
         actions: [
-          IconButton(
-            onPressed: () {
-              showStatsDialog(context);
-            },
-            icon: Icon(Icons.analytics),
-          ),
           GestureDetector(
-            child: coins(context, diamondAmount),
-            onTap: () {
-              openShop(context);
-            },
+            onTap: () => openShop(context),
+            child: coins(context, diamonds),
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.username,
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.bar_chart),
+              title: Text(AppLocalizations.of(context).translate('stats')),
+              onTap: () => showStatsDialog(context),
+            ),
+            ListTile(
+              leading: Icon(Icons.book),
+              title: Text(AppLocalizations.of(context).translate('library')),
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const Library()),
+                  ),
+            ),
+            ListTile(
+              leading: Icon(Icons.question_mark),
+              title: Text(
+                AppLocalizations.of(context).translate('how_to_play'),
+              ),
+              onTap: () => showHowToPlayDialog(context),
+            ),
+            Divider(),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text(AppLocalizations.of(context).translate('log_out')),
+              onTap: () async => await _logout(context),
+            ),
+          ],
+        ),
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
@@ -87,12 +200,10 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
               AppLocalizations.of(context).translate('daily_mode'),
               Colors.green.shade300,
               Colors.teal.shade300,
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DailyMode()),
-                );
-              },
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DailyMode()),
+              ),
             ),
             const SizedBox(height: 10),
             Padding(
@@ -104,14 +215,16 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     AppLocalizations.of(context).translate('5_letter_mode'),
                     const Color.fromARGB(255, 142, 212, 241),
                     const Color.fromARGB(255, 0, 125, 179),
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => LevelMapPage(currentFiveModeLevel),
-                        ),
-                      );
-                    },
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => LevelMapPage(
+                              "Mode 5",
+                              currentLevel: currentFiveModeLevel,
+                            ),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   buildModeButton(
@@ -119,14 +232,16 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     AppLocalizations.of(context).translate('4_letter_mode'),
                     const Color.fromARGB(255, 255, 201, 120),
                     const Color.fromARGB(255, 255, 114, 20),
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FourLetterScreen(),
-                        ),
-                      );
-                    },
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => LevelMapPage(
+                              "Mode 4",
+                              currentLevel: currentFourModeLevel,
+                            ),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   buildModeButton(
@@ -134,14 +249,16 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     AppLocalizations.of(context).translate('3_letter_mode'),
                     const Color.fromARGB(255, 219, 142, 255),
                     const Color.fromARGB(255, 104, 8, 148),
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ThreeLetterScreen(),
-                        ),
-                      );
-                    },
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => LevelMapPage(
+                              "Mode 3",
+                              currentLevel: currentThreeModeLevel,
+                            ),
+                      ),
+                    ),
                   ),
                 ],
               ),

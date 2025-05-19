@@ -1,0 +1,14 @@
+{
+  "levels": [
+    { "level": 1, "word": "مدرسة" },
+    { "level": 2, "word": "تفاحة" },
+    { "level": 3, "word": "حديقة" },
+    { "level": 4, "word": "نافذة" },
+    { "level": 5, "word": "مطبخي" },
+    { "level": 6, "word": "سيارة" },
+    { "level": 7, "word": "موزات" },
+    { "level": 8, "word": "صديقك" },
+    { "level": 9, "word": "كراسة" },
+    { "level": 10, "word": "نجومي" }
+  ]
+}

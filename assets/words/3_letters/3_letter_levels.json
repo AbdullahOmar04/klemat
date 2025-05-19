@@ -1,0 +1,14 @@
+{
+  "levels": [
+    { "level": 1, "word": "باب" },
+    { "level": 2, "word": "بيت" },
+    { "level": 3, "word": "نور" },
+    { "level": 4, "word": "عين" },
+    { "level": 5, "word": "أكل" },
+    { "level": 6, "word": "قلم" },
+    { "level": 7, "word": "يدك" },
+    { "level": 8, "word": "لعب" },
+    { "level": 9, "word": "لبن" },
+    { "level": 10, "word": "كوب" }
+  ]
+}

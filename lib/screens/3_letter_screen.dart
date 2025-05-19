@@ -1,6 +1,8 @@
 // ignore_for_file: non_constant_identifier_names
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
 import 'package:klemat/keyboard.dart';
 import 'package:klemat/themes/app_localization.dart';
@@ -11,8 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ThreeLetterScreen extends StatefulWidget {
-  const ThreeLetterScreen({super.key});
+  final String correctWord;
 
+  const ThreeLetterScreen({super.key, required this.correctWord});
   @override
   State<StatefulWidget> createState() {
     return _ThreeLetterScreen();
@@ -29,9 +32,11 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
 
   int _fiveLettersStop = 0;
 
-  String _correctWord = '';
+  late String _correctWord;
 
   int _currentRow = 0;
+  int _diamonds = 0;
+  final _userData = UserDataService();
 
   final List<TextEditingController> _controllers = List.generate(
     21,
@@ -59,6 +64,8 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
   void initState() {
     super.initState();
     _loadWordsFromJson();
+    _loadUserData();
+    _correctWord = widget.correctWord;
 
     for (int i = 0; i < 7; i++) {
       final controller = AnimationController(
@@ -128,6 +135,13 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
     _updateKeyColors();
   }
 
+  Future<void> _loadUserData() async {
+    final amount = await _userData.loadDiamonds();
+    setState(() {
+      _diamonds = amount;
+    });
+  }
+
   Future<void> _loadWordsFromJson() async {
     // Load the JSON strings asynchronously.
     final jsonString = await rootBundle.loadString(
@@ -146,16 +160,16 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
       words = wordsList;
       c_words = cWordsList;
     });
-
-    _getRandomWord(c_words);
   }
 
+  /*
   void _getRandomWord(List<String> woords) {
     final random = Random();
     setState(() {
       _correctWord = c_words[random.nextInt(woords.length)];
     });
   }
+*/
 
   @override
   void dispose() {
@@ -201,7 +215,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
         backgroundColor: Theme.of(context).colorScheme.surface,
         actions: [
           GestureDetector(
-            child: coins(context, diamondAmount),
+            child: coins(context, _diamonds),
             onTap: () {
               openShop(context);
             },
@@ -335,17 +349,25 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
   void _revealHint() {
     int startIndex = _currentRow * 3;
     int endIndex = startIndex + 2;
+
+    // Get all guessed letters so far
+    Set<String> guessed =
+        _controllers
+            .map((c) => c.text.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet();
+
     List<int> availableIndices = [];
 
     for (int i = startIndex; i <= endIndex; i++) {
-      if (!revealedIndices.contains(i)) {
+      final letter = _correctWord[i % 3];
+      if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
         availableIndices.add(i);
       }
     }
 
     if (!gameWon && availableIndices.isNotEmpty) {
       int randomIndex =
-
           availableIndices[Random().nextInt(availableIndices.length)];
       String letter = _correctWord[randomIndex % 3];
 
@@ -446,8 +468,9 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  void _submit() {
+  void _submit() async {
     print(_correctWord);
+
     if (_currentTextfield % 3 != 0 || _fiveLettersStop != 3) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -471,7 +494,6 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
           ),
         ),
       );
-
       return;
     }
 
@@ -518,77 +540,77 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
           ),
         ),
       );
-
       return;
     }
 
     if (currentWord == _correctWord) {
+      for (int k = startIndex; k <= endIndex; k++) {
+        guessedLetter = _controllers[k].text;
+        _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
+        keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+        _colorTypes[k] = "onPrimary";
+      }
+
       setState(() {
-        for (int k = startIndex; k <= endIndex; k++) {
-          guessedLetter = _controllers[k].text;
-          _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
-          keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-          _colorTypes[k] = "onPrimary";
-        }
         gameWon = true;
         _gameTimer.stop();
-        ////////////
-        if (winStreak != 3) {
-          winStreak++;
-        } else {
-          setState(() {
-            diamondAmount += 50;
-          });
-        }
-        ////////////
-        if (_gameTimer.elapsedSeconds < 120) {
-          if (timeWinStreak == 0) {
-            timeWinStreak++;
-            setState(() {
-              diamondAmount += 30;
-            });
-          }
-        }
-        ////////////
       });
+
+      if (winStreak < 3) {
+        winStreak++;
+        if (winStreak == 3) {
+          await UserDataService().awardDiamonds(50);
+        }
+      } else {
+        winStreak++;
+      }
+
+      if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
+        timeWinStreak++;
+        await UserDataService().awardDiamonds(30);
+      }
+
+      await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
+
       showDefinitionDialog(context, _correctWord);
+      currentThreeModeLevel++;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .update({
+            'score': FieldValue.increment(1), // or any score increment logic
+          });
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
 
         if (guessedLetter == deconstructedCorrectWord[j]) {
-          setState(() {
-            _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
-            keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-            _colorTypes[i] = "onPrimary";
-          });
+          _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
+          keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+          _colorTypes[i] = "onPrimary";
           letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
         }
       }
 
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
+
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
           if (letterCounts.containsKey(guessedLetter) &&
               letterCounts[guessedLetter]! > 0) {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
-              _colorTypes[i] = "onSecondary";
-            });
+            _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
+            _colorTypes[i] = "onSecondary";
             letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
 
             if (keyColors[guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
-              setState(() {
-                keyColors[guessedLetter] =
-                    Theme.of(context).colorScheme.onSecondary;
-              });
+              keyColors[guessedLetter] =
+                  Theme.of(context).colorScheme.onSecondary;
             }
           } else {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onError;
-              _colorTypes[i] = "onError";
-            });
+            _fillColors[i] = Theme.of(context).colorScheme.onError;
+            _colorTypes[i] = "onError";
+
             if (keyColors[guessedLetter] !=
                     Theme.of(context).colorScheme.onPrimary &&
                 keyColors[guessedLetter] !=
@@ -599,7 +621,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
         }
       }
 
-      if (_currentTextfield == 21 && gameWon == false) {
+      if (_currentTextfield == 21 && !gameWon) {
         showDialog(
           context: context,
           builder:
@@ -645,12 +667,19 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
                 ),
               ),
         );
-      } else if (gameWon == true) {}
+      }
     }
 
     currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
+
+    await UserDataService().addGottenWord(_correctWord);
+    await UserDataService().saveStreaks(
+      winStreak: winStreak,
+      dailyWinStreak: dailyWinStreak,
+      timeWinStreak: timeWinStreak,
+    );
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

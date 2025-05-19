@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
 import 'package:klemat/keyboard.dart';
 import 'package:klemat/themes/app_localization.dart';
@@ -10,8 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class FourLetterScreen extends StatefulWidget {
-  const FourLetterScreen({super.key});
+  final String correctWord;
 
+  const FourLetterScreen({super.key, required this.correctWord});
   @override
   State<StatefulWidget> createState() {
     return _FourLetterScreen();
@@ -28,9 +31,11 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
   int _fiveLettersStop = 0;
 
-  String _correctWord = '';
+  late String _correctWord;
 
   int _currentRow = 0;
+  int _diamonds = 0;
+  final _userData = UserDataService();
 
   final List<TextEditingController> _controllers = List.generate(
     28,
@@ -58,6 +63,8 @@ class _FourLetterScreen extends State<FourLetterScreen>
   void initState() {
     super.initState();
     _loadWordsFromJson();
+    _loadUserData();
+    _correctWord = widget.correctWord;
 
     for (int i = 0; i < 7; i++) {
       final controller = AnimationController(
@@ -128,6 +135,13 @@ class _FourLetterScreen extends State<FourLetterScreen>
     _updateKeyColors();
   }
 
+  Future<void> _loadUserData() async {
+    final amount = await _userData.loadDiamonds();
+    setState(() {
+      _diamonds = amount;
+    });
+  }
+
   Future<void> _loadWordsFromJson() async {
     final jsonString = await rootBundle.loadString(
       'assets/words/4_letters/4_letter_words_all.json',
@@ -144,15 +158,17 @@ class _FourLetterScreen extends State<FourLetterScreen>
       c_words = cWordsList;
     });
 
-    _getRandomWord(c_words);
+    //_getRandomWord(c_words);
   }
 
+  /*
   void _getRandomWord(List<String> woords) {
     final random = Random();
     setState(() {
       _correctWord = c_words[random.nextInt(woords.length)];
     });
   }
+*/
 
   @override
   void dispose() {
@@ -198,7 +214,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
         backgroundColor: Theme.of(context).colorScheme.surface,
         actions: [
           GestureDetector(
-            child: coins(context, diamondAmount),
+            child: coins(context, _diamonds),
             onTap: () {
               openShop(context);
             },
@@ -332,28 +348,36 @@ class _FourLetterScreen extends State<FourLetterScreen>
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _revealHint() {
-    int startIndex = _currentRow * 4;
-    int endIndex = startIndex + 3;
-    List<int> availableIndices = [];
+  int startIndex = _currentRow * 4;
+  int endIndex = startIndex + 3;
 
-    for (int i = startIndex; i <= endIndex; i++) {
-      if (!revealedIndices.contains(i)) {
-        availableIndices.add(i);
-      }
-    }
+  // Get all guessed letters so far
+  Set<String> guessed = _controllers
+      .map((c) => c.text.trim())
+      .where((c) => c.isNotEmpty)
+      .toSet();
 
-    if (!gameWon && availableIndices.isNotEmpty) {
-      int randomIndex =
-          availableIndices[Random().nextInt(availableIndices.length)];
-      String letter = _correctWord[randomIndex % 4];
+  List<int> availableIndices = [];
 
-      setState(() {
-        _hintLetters[randomIndex] = letter;
-        _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
-        revealedIndices.add(randomIndex);
-      });
+  for (int i = startIndex; i <= endIndex; i++) {
+    final letter = _correctWord[i % 4];
+    if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
+      availableIndices.add(i);
     }
   }
+
+  if (!gameWon && availableIndices.isNotEmpty) {
+    int randomIndex =
+        availableIndices[Random().nextInt(availableIndices.length)];
+    String letter = _correctWord[randomIndex % 4];
+
+    setState(() {
+      _hintLetters[randomIndex] = letter;
+      _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
+      revealedIndices.add(randomIndex);
+    });
+  }
+}
 
   /////////////////////////////////////////////////////////////////////////////////////////////
   ///
@@ -445,8 +469,9 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  void _submit() {
+  void _submit() async {
     print(_correctWord);
+
     if (_currentTextfield % 4 != 0 || _fiveLettersStop != 4) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -470,7 +495,6 @@ class _FourLetterScreen extends State<FourLetterScreen>
           ),
         ),
       );
-
       return;
     }
 
@@ -517,50 +541,49 @@ class _FourLetterScreen extends State<FourLetterScreen>
           ),
         ),
       );
-
       return;
     }
 
     if (currentWord == _correctWord) {
+      for (int k = startIndex; k <= endIndex; k++) {
+        guessedLetter = _controllers[k].text;
+        _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
+        keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+        _colorTypes[k] = "onPrimary";
+      }
+
       setState(() {
-        for (int k = startIndex; k <= endIndex; k++) {
-          guessedLetter = _controllers[k].text;
-          _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
-          keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-          _colorTypes[k] = "onPrimary";
-        }
         gameWon = true;
         _gameTimer.stop();
-        ////////////
-        if (winStreak != 3) {
-          winStreak++;
-        } else {
-          setState(() {
-            diamondAmount += 50;
-          });
-        }
-        ////////////
-        if (_gameTimer.elapsedSeconds < 120) {
-          if (timeWinStreak == 0) {
-            timeWinStreak++;
-            setState(() {
-              diamondAmount += 30;
-            });
-          }
-        }
-        ////////////
       });
+
+      winStreak++;
+
+      if (winStreak >= 3) {
+        await UserDataService().awardDiamonds(50);
+        winStreak = 0; // Reset after awarding
+      }
+
+      if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
+        timeWinStreak++;
+        await UserDataService().awardDiamonds(30);
+      }
+
+      await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
+
       showDefinitionDialog(context, _correctWord);
+      currentFourModeLevel++;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .update({'score': FieldValue.increment(1)});
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
-
         if (guessedLetter == deconstructedCorrectWord[j]) {
-          setState(() {
-            _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
-            keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-            _colorTypes[i] = "onPrimary";
-          });
+          _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
+          keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+          _colorTypes[i] = "onPrimary";
           letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
         }
       }
@@ -570,24 +593,19 @@ class _FourLetterScreen extends State<FourLetterScreen>
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
           if (letterCounts.containsKey(guessedLetter) &&
               letterCounts[guessedLetter]! > 0) {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
-              _colorTypes[i] = "onSecondary";
-            });
+            _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
+            _colorTypes[i] = "onSecondary";
             letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
 
             if (keyColors[guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
-              setState(() {
-                keyColors[guessedLetter] =
-                    Theme.of(context).colorScheme.onSecondary;
-              });
+              keyColors[guessedLetter] =
+                  Theme.of(context).colorScheme.onSecondary;
             }
           } else {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onError;
-              _colorTypes[i] = "onError";
-            });
+            _fillColors[i] = Theme.of(context).colorScheme.onError;
+            _colorTypes[i] = "onError";
+
             if (keyColors[guessedLetter] !=
                     Theme.of(context).colorScheme.onPrimary &&
                 keyColors[guessedLetter] !=
@@ -644,12 +662,19 @@ class _FourLetterScreen extends State<FourLetterScreen>
                 ),
               ),
         );
-      } else if (gameWon == true) {}
+        winStreak = 0;
+      }
     }
 
     currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
+    await UserDataService().addGottenWord(_correctWord);
+    await UserDataService().saveStreaks(
+      winStreak: winStreak,
+      dailyWinStreak: dailyWinStreak,
+      timeWinStreak: timeWinStreak,
+    );
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

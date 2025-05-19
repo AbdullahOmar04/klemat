@@ -1,6 +1,8 @@
 // ignore_for_file: sort_child_properties_last, unused_field, no_leading_underscores_for_local_identifiers, unused_local_variable, constant_pattern_never_matches_value_type, use_build_context_synchronously
 import 'dart:convert';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
 import 'package:klemat/keyboard.dart';
 import 'package:klemat/themes/app_localization.dart';
@@ -26,6 +28,8 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   int _fiveLettersStop = 0;
   String _dailyWord = '';
   int _currentRow = 0;
+  int _diamonds = 0;
+  final _userData = UserDataService();
 
   final List<TextEditingController> _controllers = List.generate(
     35,
@@ -53,6 +57,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _initializeGame();
+    _loadUserData();
 
     // Initialize an AnimationController and Animation for each row
     for (int i = 0; i < 7; i++) {
@@ -122,6 +127,13 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     _updateKeyColors();
   }
 
+  Future<void> _loadUserData() async {
+    final amount = await _userData.loadDiamonds();
+    setState(() {
+      _diamonds = amount;
+    });
+  }
+
   Future<void> _loadWordsFromJson() async {
     final jsonString = await rootBundle.loadString(
       'assets/words/5_letters/5_letter_words_all.json',
@@ -141,16 +153,16 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   }
 
   Future<void> _initializeGame() async {
-    await _loadWordsFromJson(); 
+    await _loadWordsFromJson();
     await _initializeDailyWord();
-    
-    if (gameWon) {
-    _gameTimer.stop();
-  } else {
-    _gameTimer.start();
-  }
 
-    setState(() {}); 
+    if (gameWon) {
+      _gameTimer.stop();
+    } else {
+      _gameTimer.start();
+    }
+
+    setState(() {});
   }
 
   Future<void> _initializeDailyWord() async {
@@ -273,22 +285,23 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
             color: const Color.fromARGB(94, 131, 131, 131),
             borderRadius: BorderRadius.all(Radius.circular(10)),
             border: Border.all(
-              width: 60,
+              width: 1.5,
               color: Theme.of(context).colorScheme.surface,
             ),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.timer),
-              const SizedBox(width: 10),
-              Text(_gameTimer.formattedTime),
+              Icon(Icons.timer, size: 25),
+              const SizedBox(width: 5),
+              Text(_gameTimer.formattedTime, style: TextStyle(fontSize: 15)),
             ],
           ),
         ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         actions: [
           GestureDetector(
-            child: coins(context, diamondAmount),
+            child: coins(context, _diamonds),
             onTap: () {
               openShop(context);
             },
@@ -546,6 +559,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   void _submit() async {
     await _saveGameProgress();
     print(_dailyWord);
+
     if (_currentTextfield % 5 != 0 || _fiveLettersStop != 5) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -569,36 +583,34 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
           ),
         ),
       );
-
       return;
     }
 
-    List<String> _currentWordList = [];
-    String _currentWord = "";
-    String _guessedLetter;
+    List<String> currentWordList = [];
+    String currentWord = "";
+    String guessedLetter;
+
     int startIndex = _currentTextfield - 5;
     int endIndex = _currentTextfield - 1;
-    List<String> _deconstructedCorrectWord = _dailyWord.split('');
-    Map<String, int> letterCounts = {};
 
-    for (var letter in _deconstructedCorrectWord) {
+    List<String> deconstructedCorrectWord = _dailyWord.split('');
+    Map<String, int> letterCounts = {};
+    for (var letter in deconstructedCorrectWord) {
       letterCounts[letter] = (letterCounts[letter] ?? 0) + 1;
     }
 
     for (int i = startIndex; i <= endIndex; i++) {
-      _currentWordList.add(_controllers[i].text);
+      currentWordList.add(_controllers[i].text);
     }
+    currentWord = currentWordList.join("");
 
-    _currentWord = _currentWordList.join("");
-
-    if (!words.contains(_currentWord)) {
+    if (!words.contains(currentWord)) {
       _vibrateTwice();
       _shakeCurrentRow();
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Theme.of(context).colorScheme.error,
-          dismissDirection: DismissDirection.horizontal,
           duration: const Duration(seconds: 2),
           content: Text(
             AppLocalizations.of(context).translate('not_in_library'),
@@ -614,96 +626,109 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
           ),
         ),
       );
-
       return;
     }
 
-    if (_currentWord == _dailyWord) {
+    if (currentWord == _dailyWord) {
+      for (int k = startIndex; k <= endIndex; k++) {
+        guessedLetter = _controllers[k].text;
+        _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
+        keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+        _colorTypes[k] = "onPrimary";
+      }
+
       setState(() {
-        for (int k = startIndex; k <= endIndex; k++) {
-          _guessedLetter = _controllers[k].text;
-          _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
-          keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-          _colorTypes[k] = "onPrimary";
-        }
         gameWon = true;
         _gameTimer.stop();
-        ////////////
-        if (winStreak != 3) {
-          winStreak++;
-        } else {
-          awardDiamonds(50);
-        }
-        ////////////
-        if (_gameTimer.elapsedSeconds < 120) {
-          if (timeWinStreak == 0) {
-            timeWinStreak++;
-            awardDiamonds(30);
-          }
-        }
-        ////////////
-        if (dailyWinStreak != 7) {
-          dailyWinStreak++;
-        } else {
-          awardDiamonds(150);
-        }
       });
+
+      // Rewards (outside setState)
+      if (winStreak < 3) {
+        winStreak++;
+      } else {
+        await UserDataService().awardDiamonds(50);
+      }
+
+      if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
+        timeWinStreak++;
+        await UserDataService().awardDiamonds(30);
+      }
+
+      if (dailyWinStreak < 7) {
+        dailyWinStreak++;
+      } else {
+        await UserDataService().awardDiamonds(150);
+        dailyWinStreak = 0;
+      }
+
+      // Save streaks and stats
+      await UserDataService().saveStreaks(
+        winStreak: winStreak,
+        dailyWinStreak: dailyWinStreak,
+        timeWinStreak: timeWinStreak,
+      );
+
+      await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
+
       showDefinitionDialog(context, _dailyWord);
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .update({
+            'score': FieldValue.increment(1),
+          });
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
-        _guessedLetter = _controllers[i].text;
-
-        if (_guessedLetter == _deconstructedCorrectWord[j]) {
-          setState(() {
-            _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
-            keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-            _colorTypes[i] = "onPrimary";
-          });
-          letterCounts[_guessedLetter] = letterCounts[_guessedLetter]! - 1;
+        guessedLetter = _controllers[i].text;
+        if (guessedLetter == deconstructedCorrectWord[j]) {
+          _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
+          keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+          _colorTypes[i] = "onPrimary";
+          letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
         }
       }
 
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
-        _guessedLetter = _controllers[i].text;
+        guessedLetter = _controllers[i].text;
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
-          if (letterCounts.containsKey(_guessedLetter) &&
-              letterCounts[_guessedLetter]! > 0) {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
-              _colorTypes[i] = "onSecondary";
-            });
-            letterCounts[_guessedLetter] = letterCounts[_guessedLetter]! - 1;
+          if (letterCounts.containsKey(guessedLetter) &&
+              letterCounts[guessedLetter]! > 0) {
+            _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
+            _colorTypes[i] = "onSecondary";
+            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
 
-            if (keyColors[_guessedLetter] !=
+            if (keyColors[guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
-              setState(() {
-                keyColors[_guessedLetter] =
-                    Theme.of(context).colorScheme.onSecondary;
-              });
+              keyColors[guessedLetter] =
+                  Theme.of(context).colorScheme.onSecondary;
             }
           } else {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onError;
-              _colorTypes[i] = "onError";
-            });
-            if (keyColors[_guessedLetter] !=
+            _fillColors[i] = Theme.of(context).colorScheme.onError;
+            _colorTypes[i] = "onError";
+            if (keyColors[guessedLetter] !=
                     Theme.of(context).colorScheme.onPrimary &&
-                keyColors[_guessedLetter] !=
+                keyColors[guessedLetter] !=
                     Theme.of(context).colorScheme.onSecondary) {
-              keyColors[_guessedLetter] = Theme.of(context).colorScheme.onError;
+              keyColors[guessedLetter] = Theme.of(context).colorScheme.onError;
             }
           }
         }
       }
 
-      if (_currentTextfield == 35 && gameWon == false) {
+      if (_currentTextfield == 35 && !gameWon) {
         _incorrectWordDialog();
-      } else if (gameWon == true) {}
+      }
     }
 
-    _currentWordList.clear();
+    currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
+
+    await UserDataService().saveStreaks(
+      winStreak: winStreak,
+      dailyWinStreak: dailyWinStreak,
+      timeWinStreak: timeWinStreak,
+    );
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

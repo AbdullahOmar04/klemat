@@ -7,6 +7,7 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
+  cloud_firestore: ^5.6.7
   firebase_auth: ^5.5.3
   firebase_core: ^3.13.0
   flutter:
@@ -30,13 +31,24 @@ flutter:
   assets:
     - assets/words/5_letters/5_letter_words_all.json
     - assets/words/5_letters/5_letter_answers.json
+    - assets/words/5_letters/5_letter_levels.json
+
     - assets/words/4_letters/4_letter_words_all.json
     - assets/words/4_letters/4_letter_answers.json
+    - assets/words/4_letters/4_letter_levels.json
+
     - assets/words/3_letters/3_letter_words_all.json
     - assets/words/3_letters/3_letter_answers.json
+    - assets/words/3_letters/3_letter_levels.json
+
     - assets/images/Mountains.png
-    - assets/images/locked.png
     - assets/lang/en.json
     - assets/lang/ar.json
+    - assets/images/green_flag.png
+    - assets/images/finished_flag.png
+    - assets/images/locked_flag.png
+    #- assets/images/arab1-removedbg-preview.png
+    #- assets/images/arab2-removedbg-preview.png
+    #- assets/images/arab3-removedbg-preview.png
 
 

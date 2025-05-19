@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'image_params.dart';
 
 class LevelMapParams {
-  static final _random = math.Random();
+  static final _random = math.Random(123);
   final int levelCount;
 
   /// Determines the current level of the user.
@@ -100,7 +100,7 @@ class LevelMapParams {
     this.levelHeight = 200,
     this.pathStrokeWidth = 3,
     this.dashLengthFactor = 0.025,
-    this.enableVariationBetweenCurves = true,
+    this.enableVariationBetweenCurves = false,
     this.maxVariationFactor = 0.2,
     this.showPathShadow = true,
     this.shadowDistanceFromPathOffset = const Offset(-2, 12),

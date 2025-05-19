@@ -1,5 +1,7 @@
 // ignore_for_file: sort_child_properties_last, unused_field, no_leading_underscores_for_local_identifiers, unused_local_variable, constant_pattern_never_matches_value_type
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
 import 'package:klemat/keyboard.dart';
 import 'package:klemat/themes/app_localization.dart';
@@ -10,7 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class FiveLetterScreen extends StatefulWidget {
-  const FiveLetterScreen({super.key});
+  final String correctWord;
+
+  const FiveLetterScreen({super.key, required this.correctWord});
 
   @override
   State<StatefulWidget> createState() {
@@ -28,9 +32,13 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
 
   int _fiveLettersStop = 0;
 
-  String _correctWord = '';
+  late String _correctWord;
 
   int _currentRow = 0;
+
+  int _diamonds = 0;
+
+  final _userData = UserDataService();
 
   final List<TextEditingController> _controllers = List.generate(
     35,
@@ -58,6 +66,8 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
   void initState() {
     super.initState();
     _loadWordsFromJson();
+    _loadUserData();
+    _correctWord = widget.correctWord;
 
     for (int i = 0; i < 7; i++) {
       final controller = AnimationController(
@@ -128,6 +138,13 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
     _updateKeyColors();
   }
 
+  Future<void> _loadUserData() async {
+    final amount = await _userData.loadDiamonds();
+    setState(() {
+      _diamonds = amount;
+    });
+  }
+
   Future<void> _loadWordsFromJson() async {
     final jsonString = await rootBundle.loadString(
       'assets/words/5_letters/5_letter_words_all.json',
@@ -144,15 +161,17 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       c_words = cWordsList;
     });
 
-    _getRandomWord(c_words);
+    //_getRandomWord(c_words);
   }
 
+  /*
   void _getRandomWord(List<String> woords) {
     final random = Random();
     setState(() {
       _correctWord = c_words[random.nextInt(woords.length)];
     });
   }
+*/
 
   @override
   void dispose() {
@@ -204,7 +223,7 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
             icon: Icon(Icons.analytics),
           ),
           GestureDetector(
-            child: coins(context, diamondAmount),
+            child: coins(context, _diamonds),
             onTap: () {
               openShop(context);
             },
@@ -336,29 +355,37 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  void _revealHint() {
-    int startIndex = _currentRow * 5;
-    int endIndex = startIndex + 4;
-    List<int> availableIndices = [];
+void _revealHint() {
+  int startIndex = _currentRow * 5;
+  int endIndex = startIndex + 4;
 
-    for (int i = startIndex; i <= endIndex; i++) {
-      if (!revealedIndices.contains(i)) {
-        availableIndices.add(i);
-      }
-    }
+  // Get all guessed letters so far
+  Set<String> guessed = _controllers
+      .map((c) => c.text.trim())
+      .where((c) => c.isNotEmpty)
+      .toSet();
 
-    if (!gameWon && availableIndices.isNotEmpty) {
-      int randomIndex =
-          availableIndices[Random().nextInt(availableIndices.length)];
-      String letter = _correctWord[randomIndex % 5];
+  List<int> availableIndices = [];
 
-      setState(() {
-        _hintLetters[randomIndex] = letter;
-        _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
-        revealedIndices.add(randomIndex);
-      });
+  for (int i = startIndex; i <= endIndex; i++) {
+    final letter = _correctWord[i % 5];
+    if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
+      availableIndices.add(i);
     }
   }
+
+  if (!gameWon && availableIndices.isNotEmpty) {
+    int randomIndex =
+        availableIndices[Random().nextInt(availableIndices.length)];
+    String letter = _correctWord[randomIndex % 5];
+
+    setState(() {
+      _hintLetters[randomIndex] = letter;
+      _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
+      revealedIndices.add(randomIndex);
+    });
+  }
+}
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -475,7 +502,6 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
           ),
         ),
       );
-
       return;
     }
 
@@ -522,51 +548,56 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
           ),
         ),
       );
-
       return;
     }
 
     if (_currentWord == _correctWord) {
+      for (int k = startIndex; k <= endIndex; k++) {
+        _guessedLetter = _controllers[k].text;
+        _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
+        keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+        _colorTypes[k] = "onPrimary";
+      }
+
       setState(() {
-        for (int k = startIndex; k <= endIndex; k++) {
-          _guessedLetter = _controllers[k].text;
-          _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
-          keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-          _colorTypes[k] = "onPrimary";
-        }
         gameWon = true;
         _gameTimer.stop();
-        ////////////
-        if (winStreak != 3) {
-          winStreak++;
-        } else {
-          setState(() {
-            awardDiamonds(50);
-          });
-        }
-        ////////////
-        if (_gameTimer.elapsedSeconds < 120) {
-          if (timeWinStreak == 0) {
-            timeWinStreak++;
-            setState(() {
-              awardDiamonds(30);
-            });
-          }
-        }
-        ////////////
       });
+
+      // Award logic (must be outside setState)
+      if (winStreak != 3) {
+        winStreak++;
+      } else {
+        await UserDataService().awardDiamonds(50);
+      }
+
+      if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
+        setState(() {
+          timeWinStreak++;
+        });
+        await UserDataService().awardDiamonds(30);
+      }
+
+      await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
+
       showDefinitionDialog(context, _correctWord);
-      await GameStats.recordGame(won: gameWon, guesses: _currentRow + 1);
+
+      currentFiveModeLevel++;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .update({
+            'score': FieldValue.increment(1), 
+          });
     } else {
       winStreak = 0;
+
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         _guessedLetter = _controllers[i].text;
         if (_guessedLetter == _deconstructedCorrectWord[j]) {
-          setState(() {
-            _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
-            keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
-            _colorTypes[i] = "onPrimary";
-          });
+          _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
+          keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
+          _colorTypes[i] = "onPrimary";
           letterCounts[_guessedLetter] = letterCounts[_guessedLetter]! - 1;
         }
       }
@@ -574,26 +605,19 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         _guessedLetter = _controllers[i].text;
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
-          if (letterCounts.containsKey(_guessedLetter) &&
+          if (letterCounts[_guessedLetter] != null &&
               letterCounts[_guessedLetter]! > 0) {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
-              _colorTypes[i] = "onSecondary";
-            });
-            letterCounts[_guessedLetter] = letterCounts[_guessedLetter]! - 1;
-
+            _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
+            _colorTypes[i] = "onSecondary";
             if (keyColors[_guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
-              setState(() {
-                keyColors[_guessedLetter] =
-                    Theme.of(context).colorScheme.onSecondary;
-              });
+              keyColors[_guessedLetter] =
+                  Theme.of(context).colorScheme.onSecondary;
             }
+            letterCounts[_guessedLetter] = letterCounts[_guessedLetter]! - 1;
           } else {
-            setState(() {
-              _fillColors[i] = Theme.of(context).colorScheme.onError;
-              _colorTypes[i] = "onError";
-            });
+            _fillColors[i] = Theme.of(context).colorScheme.onError;
+            _colorTypes[i] = "onError";
             if (keyColors[_guessedLetter] !=
                     Theme.of(context).colorScheme.onPrimary &&
                 keyColors[_guessedLetter] !=
@@ -645,17 +669,43 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
                                 );
                               },
                       ),
+                      TextSpan(
+                        text: AppLocalizations.of(
+                          context,
+                        ).translate('how_to_pronounce'),
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          color: Colors.blue.shade300,
+                        ),
+                        recognizer:
+                            TapGestureRecognizer()
+                              ..onTap = () {
+                                launchUrl(
+                                  Uri.parse(
+                                    'https://forvo.com/word/$_correctWord',
+                                  ),
+                                );
+                              },
+                      ),
                     ],
                   ),
                 ),
               ),
         );
-      } else if (gameWon == true) {}
+      }
     }
 
     _currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
+    await UserDataService().addGottenWord(_correctWord);
+    await UserDataService().saveStreaks(
+      winStreak: winStreak,
+      dailyWinStreak: dailyWinStreak,
+      timeWinStreak: timeWinStreak,
+    );
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

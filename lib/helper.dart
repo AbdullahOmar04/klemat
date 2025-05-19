@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:klemat/main.dart';
 import 'package:klemat/themes/app_localization.dart';
@@ -11,12 +11,25 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+List gottenWords = [];
+
+int currentFiveModeLevel = 1;
+int currentFourModeLevel = 1;
+int currentThreeModeLevel = 1;
 
 int winStreak = 0;
 int dailyWinStreak = 0;
 int timeWinStreak = 0;
-int diamondAmount = 0;
-int currentFiveModeLevel = 1;
+
+class GameStatsSnapshot {
+  static int played = 0;
+  static int wins = 0;
+  static int currentStreak = 0;
+  static int maxStreak = 0;
+  static Map<int, int> distribution = {};
+}
 
 class Challenge {
   final String title;
@@ -39,19 +52,19 @@ final RouteObserver<ModalRoute> routeObserver = RouteObserver<ModalRoute>();
 void challenges(BuildContext context) {
   final List<Challenge> challenges = [
     Challenge(
-      title: 'Win 3 games in a row',
+      title: AppLocalizations.of(context).translate('win_3_in_a_row'),
       currentVal: winStreak,
       goal: 3,
       reward: 50,
     ),
     Challenge(
-      title: 'Solve a game in under 2 minutes',
+      title: AppLocalizations.of(context).translate('solve_under_2'),
       currentVal: timeWinStreak,
       goal: 1,
       reward: 30,
     ),
     Challenge(
-      title: 'Daily Streak: Solve daily for 7 days',
+      title: AppLocalizations.of(context).translate('daily_challenge'),
       currentVal: dailyWinStreak,
       goal: 7,
       reward: 150,
@@ -63,7 +76,7 @@ void challenges(BuildContext context) {
     builder: (context) {
       return AlertDialog(
         title: Text(
-          'Challenges',
+          AppLocalizations.of(context).translate('challenges'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
@@ -82,8 +95,9 @@ void challenges(BuildContext context) {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Progress: ${challenge.currentVal}/${challenge.goal}',
+                          "${AppLocalizations.of(context).translate("progress")}: ${challenge.currentVal}/${challenge.goal}",
                         ),
+
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -108,7 +122,7 @@ void challenges(BuildContext context) {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context).translate('close')),
           ),
         ],
       );
@@ -118,20 +132,17 @@ void challenges(BuildContext context) {
 
 Widget coins(BuildContext context, int amount) {
   return Container(
-    padding: const EdgeInsets.all(10),
+    margin: const EdgeInsets.only(right: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
-      color: const Color.fromARGB(94, 131, 131, 131),
-      borderRadius: const BorderRadius.all(Radius.circular(10)),
-      border: Border.all(
-        width: 5,
-        color: Theme.of(context).colorScheme.surface,
-      ),
+      color: Theme.of(context).colorScheme.primary,
+      borderRadius: BorderRadius.circular(10),
     ),
     child: Row(
       children: [
-        const Icon(Icons.diamond, color: Colors.blue),
-        const SizedBox(width: 10),
-        Text('$amount', style: const TextStyle(fontSize: 15)),
+        const Icon(Icons.diamond, size: 20, color: Colors.cyanAccent),
+        const SizedBox(width: 4),
+        Text('$amount', style: const TextStyle(color: Colors.white70)),
       ],
     ),
   );
@@ -148,95 +159,189 @@ void openShop(BuildContext context) {
   );
 }
 
-Future<void> awardDiamonds(int amount) async {
-  final prefs = await SharedPreferences.getInstance();
-  // Read the current stored diamond amount
-  int currentAmount = prefs.getInt('diamondAmount') ?? 0;
-  currentAmount += amount;
-  await prefs.setInt('diamondAmount', currentAmount);
-}
+class UserDataService {
+  final String? uid = FirebaseAuth.instance.currentUser?.uid;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-class GameStats {
-  static const _playedKey = 'stats_played';
-  static const _winsKey = 'stats_wins';
-  static const _currentKey = 'stats_currentStreak';
-  static const _maxKey = 'stats_maxStreak';
-  // one key per guess count:
-  static String _distKey(int i) => 'stats_dist_$i';
+  CollectionReference get _userRef =>
+      FirebaseFirestore.instance.collection('users');
 
-  /// Call this once at the end of every round:
-  static Future<void> recordGame({
-    required bool won,
-    required int guesses,
+  /// Load diamond amount
+  Future<int> loadDiamonds() async {
+    if (uid == null) return 0;
+    final doc = await _userRef.doc(uid).get();
+    final data = doc.data() as Map<String, dynamic>?;
+    return data?['diamonds'] ?? 0;
+  }
+
+  /// Award diamonds
+  Future<void> awardDiamonds(int amount) async {
+    if (uid == null) return;
+    final doc = await _userRef.doc(uid).get();
+    final data = doc.data() as Map<String, dynamic>?;
+    int current = data?['diamonds'] ?? 0;
+    await _userRef.doc(uid).set({
+      'diamonds': current + amount,
+    }, SetOptions(merge: true));
+  }
+
+  /// Load win/daily/time streaks
+  Future<Map<String, int>> loadStreaks() async {
+    if (uid == null) return {};
+    final doc = await _userRef.doc(uid).get();
+    final data = doc.data() as Map<String, dynamic>?;
+    return {
+      'winStreak': data?['winStreak'] ?? 0,
+      'dailyWinStreak': data?['dailyWinStreak'] ?? 0,
+      'timeWinStreak': data?['timeWinStreak'] ?? 0,
+    };
+  }
+
+  /// Save streaks
+  Future<void> saveStreaks({
+    required int winStreak,
+    required int dailyWinStreak,
+    required int timeWinStreak,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    if (uid == null) return;
+    await _userRef.doc(uid).set({
+      'winStreak': winStreak,
+      'dailyWinStreak': dailyWinStreak,
+      'timeWinStreak': timeWinStreak,
+    }, SetOptions(merge: true));
+  }
 
-    // overall games played
-    int played = (prefs.getInt(_playedKey) ?? 0) + 1;
-    await prefs.setInt(_playedKey, played);
+  Future<int> getCurrentLevel(String mode) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    final data = doc.data() ?? {};
+    return data['currentLevel$mode'] ?? 1;
+  }
 
-    // wins
-    int wins = prefs.getInt(_winsKey) ?? 0;
+  Future<void> setCurrentLevel(String mode, int level) async {
+    await _db.collection('users').doc(uid).set({
+      'currentLevel$mode': level,
+    }, SetOptions(merge: true));
+  }
+
+  /// Record game stats
+  Future<void> recordGame({required bool won, required int guesses}) async {
+    if (uid == null) return;
+    final ref = _userRef.doc(uid);
+    final snap = await ref.get();
+    final data = snap.data() as Map<String, dynamic>? ?? {};
+
+    int played = (data['stats_played'] ?? 0) + 1;
+    int wins = data['stats_wins'] ?? 0;
+    int currentStreak = data['stats_currentStreak'] ?? 0;
+    int maxStreak = data['stats_maxStreak'] ?? 0;
+
     if (won) {
       wins++;
-      await prefs.setInt(_winsKey, wins);
-      // update streak
-      int current = (prefs.getInt(_currentKey) ?? 0) + 1;
-      await prefs.setInt(_currentKey, current);
-      int maxStreak = prefs.getInt(_maxKey) ?? 0;
-      if (current > maxStreak) {
-        await prefs.setInt(_maxKey, current);
-      }
+      currentStreak++;
+      if (currentStreak > maxStreak) maxStreak = currentStreak;
     } else {
-      await prefs.setInt(_currentKey, 0);
+      currentStreak = 0;
     }
 
-    int old = prefs.getInt(_distKey(guesses)) ?? 0;
-    await prefs.setInt(_distKey(guesses), old + 1);
+    int dist = (data['stats_dist_$guesses'] ?? 0) + 1;
+
+    await ref.set({
+      'stats_played': played,
+      'stats_wins': wins,
+      'stats_currentStreak': currentStreak,
+      'stats_maxStreak': maxStreak,
+      'stats_dist_$guesses': dist,
+    }, SetOptions(merge: true));
   }
 
-  static Future<_StatsSnapshot> load() async {
-    final p = await SharedPreferences.getInstance();
-    final played = p.getInt(_playedKey) ?? 0;
-    final wins = p.getInt(_winsKey) ?? 0;
-    final current = p.getInt(_currentKey) ?? 0;
-    final maxs = p.getInt(_maxKey) ?? 0;
-    final dist = <int, int>{
-      for (var i = 1; i <= 6; i++) i: p.getInt(_distKey(i)) ?? 0,
+  Future<Map<String, dynamic>> loadStats() async {
+    if (uid == null) return {};
+    final snap = await _userRef.doc(uid).get();
+    final data = snap.data() as Map<String, dynamic>? ?? {};
+
+    final dist = <int, int>{};
+    for (int i = 1; i <= 6; i++) {
+      dist[i] = data['stats_dist_$i'] ?? 0;
+    }
+
+    return {
+      'played': data['stats_played'] ?? 0,
+      'wins': data['stats_wins'] ?? 0,
+      'currentStreak': data['stats_currentStreak'] ?? 0,
+      'maxStreak': data['stats_maxStreak'] ?? 0,
+      'distribution': dist,
     };
-    return _StatsSnapshot(
-      played: played,
-      wins: wins,
-      currentStreak: current,
-      maxStreak: maxs,
-      distribution: dist,
-    );
   }
-}
 
-class _StatsSnapshot {
-  final int played, wins, currentStreak, maxStreak;
-  final Map<int, int> distribution;
-  _StatsSnapshot({
-    required this.played,
-    required this.wins,
-    required this.currentStreak,
-    required this.maxStreak,
-    required this.distribution,
-  });
-  double get winPct => played > 0 ? wins / played * 100 : 0;
+  /// Initialize user data on sign up
+  Future<void> initializeUser({required String username}) async {
+    if (uid == null) return;
+    final doc = await _userRef.doc(uid).get();
+    if (!doc.exists) {
+      await _userRef.doc(uid).set({
+        'diamonds': 0,
+        'winStreak': 0,
+        'dailyWinStreak': 0,
+        'timeWinStreak': 0,
+        'currentLevel3': 1,
+        'currentLevel4': 1,
+        'currentLevel5': 1,
+        'stats_played': 0,
+        'stats_wins': 0,
+        'stats_currentStreak': 0,
+        'stats_maxStreak': 0,
+        'stats_dist_1': 0,
+        'stats_dist_2': 0,
+        'stats_dist_3': 0,
+        'stats_dist_4': 0,
+        'stats_dist_5': 0,
+        'stats_dist_6': 0,
+        'username': username,
+        'score': 0,
+      });
+    }
+  }
+
+  Future<List<String>> loadGottenWords() async {
+    if (uid == null) return [];
+    final doc = await _userRef.doc(uid).get();
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final List<dynamic> words = data['gottenWords'] ?? [];
+    return List<String>.from(words);
+  }
+
+  Future<void> addGottenWord(String word) async {
+    if (uid == null) return;
+    final ref = _userRef.doc(uid);
+    await ref.set({
+      'gottenWords': FieldValue.arrayUnion([word]),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateLeaderboard({
+    required String username,
+    required int score,
+  }) async {
+    if (uid == null) return;
+
+    await FirebaseFirestore.instance.collection('leaderboard').doc(uid).set({
+      'username': username,
+      'score': score,
+      'wins': FieldValue.increment(1),
+      'gamesPlayed': FieldValue.increment(1),
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }
 
 Future<void> showStatsDialog(BuildContext context) async {
-  final snap = await GameStats.load();
-
   showDialog(
     context: context,
     builder:
         (_) => AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
           title: Text(
-            'Statistics',
+            AppLocalizations.of(context).translate('stats'),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           content: SingleChildScrollView(
@@ -245,10 +350,19 @@ Future<void> showStatsDialog(BuildContext context) async {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _statTile('${snap.played}', 'Games\nPlayed'),
-                    _statTile('${snap.winPct.toStringAsFixed(0)}%', 'Win\n  %'),
-                    _statTile('${snap.currentStreak}', 'Current\n Streak'),
-                    _statTile('${snap.maxStreak}', '  Max\nStreak'),
+                    _statTile('${GameStatsSnapshot.played}', 'Games\nPlayed'),
+                    _statTile(
+                      '${GameStatsSnapshot.wins.toStringAsFixed(0)}%',
+                      'Win\n  %',
+                    ),
+                    _statTile(
+                      '${GameStatsSnapshot.currentStreak}',
+                      'Current\n Streak',
+                    ),
+                    _statTile(
+                      '${GameStatsSnapshot.maxStreak}',
+                      '  Max\nStreak',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -261,14 +375,19 @@ Future<void> showStatsDialog(BuildContext context) async {
                 ),
                 const SizedBox(height: 8),
                 for (int i = 1; i <= 6; i++)
-                  _buildBarRow(context, i, snap.distribution[i]!, snap.played),
+                  _buildBarRow(
+                    context,
+                    i,
+                    GameStatsSnapshot.distribution[i]!,
+                    GameStatsSnapshot.played,
+                  ),
               ],
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Close'),
+              child: Text(AppLocalizations.of(context).translate('close')),
             ),
           ],
         ),
@@ -363,8 +482,6 @@ void showSettingsDialog(
                     style: Theme.of(context).textTheme.displaySmall,
                   ),
                   const SizedBox(height: 20),
-
-                  // Language Selection Section
                   Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -536,7 +653,7 @@ Widget longBuildModeButton(
   Color gradEnd,
   VoidCallback onPressed,
 ) {
-  double scale = 1.0; // Button's scale factor
+  double scale = 1.0;
 
   return StatefulBuilder(
     builder: (BuildContext context, StateSetter setState) {
@@ -544,17 +661,14 @@ Widget longBuildModeButton(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: InkWell(
           onTap: () async {
-            // Restore scale and execute action after animation
             setState(() => scale = 1.0);
             await Future.delayed(const Duration(milliseconds: 100));
             onPressed();
           },
           onTapDown: (_) {
-            // Shrink the button immediately on tap
             setState(() => scale = 0.95);
           },
           onTapCancel: () {
-            // Restore scale if the tap is canceled
             setState(() => scale = 1.0);
           },
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -579,7 +693,7 @@ Widget longBuildModeButton(
                 ],
               ),
               child: ElevatedButton(
-                onPressed: null, // InkWell handles tap logic
+                onPressed: null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
@@ -613,7 +727,7 @@ Widget longBuildModeButton(
                   title: Center(
                     child: Text(
                       text,
-                      style: const TextStyle(fontSize: 28, color: Colors.white),
+                      style: const TextStyle(fontSize: 34, color: Colors.white),
                     ),
                   ),
                 ),
@@ -814,13 +928,10 @@ List<String> _parseWords(Map<String, dynamic> args) {
 }
 
 class HintedTextField extends StatefulWidget {
-  /// The hint (the letter to display as watermark).
   final String hint;
 
-  /// The controller for the text field.
   final TextEditingController controller;
 
-  /// Optional: additional styling for the text field.
   final TextStyle? textStyle;
 
   const HintedTextField({
@@ -920,7 +1031,9 @@ void showDefinitionDialog(BuildContext context, String word) {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('Close'),
+                    child: Text(
+                      AppLocalizations.of(context).translate('close'),
+                    ),
                   ),
                 ],
               );
@@ -937,11 +1050,17 @@ void showDefinitionDialog(BuildContext context, String word) {
                       ).translate('learn_word'),
                       style:
                           Localizations.localeOf(context).languageCode == 'ar'
-                              ? TextStyle(fontSize: 25)
-                              : TextStyle(fontSize: 20),
+                              ? TextStyle(
+                                fontSize: 23,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              )
+                              : TextStyle(
+                                fontSize: 20,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                     ),
                     TextSpan(
-                      text: word,
+                      text: "$word\n",
                       style: TextStyle(
                         decoration: TextDecoration.underline,
                         fontWeight: FontWeight.bold,
@@ -958,6 +1077,23 @@ void showDefinitionDialog(BuildContext context, String word) {
                               );
                             },
                     ),
+
+                    TextSpan(
+                      text: AppLocalizations.of(context).translate('pronounce'),
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: Colors.blue.shade300,
+                      ),
+                      recognizer:
+                          TapGestureRecognizer()
+                            ..onTap = () {
+                              launchUrl(
+                                Uri.parse('https://forvo.com/word/$word'),
+                              );
+                            },
+                    ),
                   ],
                 ),
               ),
@@ -968,8 +1104,10 @@ void showDefinitionDialog(BuildContext context, String word) {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('Close'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(AppLocalizations.of(context).translate('close')),
                 ),
               ],
             );
@@ -978,14 +1116,80 @@ void showDefinitionDialog(BuildContext context, String word) {
   );
 }
 
-void levelsMap(BuildContext context) {
+
+void showHowToPlayDialog(BuildContext context) {
   showDialog(
     context: context,
-    builder: (context) {
-      return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SizedBox(child: Container(child: Image.network("https://as1.ftcdn.net/jpg/04/33/56/10/1000_F_433561046_ZukvohmWL49nY8fSDiG70zw3pNbMuRnK.jpg"),),),
+    builder: (ctx) {
+      return AlertDialog(
+        title: Text(
+          AppLocalizations.of(context).translate('how_to_play'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppLocalizations.of(context).translate('goal'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(AppLocalizations.of(context).translate('goal_desc')),
+              const SizedBox(height: 15),
+              Text(
+                AppLocalizations.of(context).translate('letter_colors'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              _colorHintRow(
+                Colors.green,
+                AppLocalizations.of(context).translate('correct_letter_position'),
+              ),
+              _colorHintRow(
+                Colors.orange,
+                AppLocalizations.of(context).translate('correct_letter_wrong_spot'),
+              ),
+              _colorHintRow(
+                Colors.grey,
+                AppLocalizations.of(context).translate('letter_not_in_word'),
+              ),
+              const SizedBox(height: 15),
+              Text(
+                AppLocalizations.of(context).translate('bonus'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(AppLocalizations.of(context).translate('bonus_desc')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(AppLocalizations.of(context).translate('got_it')),
+          ),
+        ],
       );
     },
+  );
+}
+
+Widget _colorHintRow(Color color, String text) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
+    ),
   );
 }

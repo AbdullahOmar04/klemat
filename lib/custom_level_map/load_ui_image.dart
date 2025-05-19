@@ -11,7 +11,7 @@ import 'package:klemat/custom_level_map/level_map_paramas.dart';
 import 'package:klemat/custom_level_map/offset_extension.dart';
 import 'package:klemat/custom_level_map/side.dart' show Side;
 
-final math.Random _random = math.Random();
+final math.Random _random = math.Random(123);
 
 Future<ImagesToPaint?> loadImagesToPaint(LevelMapParams levelMapParams,
     int levelCount, double levelHeight, double screenWidth) async {

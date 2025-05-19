@@ -1,0 +1,14 @@
+{
+  "levels": [
+    { "level": 1, "word": "مدرس" },
+    { "level": 2, "word": "مطبخ" },
+    { "level": 3, "word": "تفاح" },
+    { "level": 4, "word": "موزة" },
+    { "level": 5, "word": "دجاج" },
+    { "level": 6, "word": "سماء" },
+    { "level": 7, "word": "غيوم" },
+    { "level": 8, "word": "شايب" },
+    { "level": 9, "word": "وردة" },
+    { "level": 10, "word": "لعبه" }
+  ]
+}
