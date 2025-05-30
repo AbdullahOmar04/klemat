@@ -41,14 +41,17 @@ flutter:
     - assets/words/3_letters/3_letter_answers.json
     - assets/words/3_letters/3_letter_levels.json
 
-    - assets/images/Mountains.png
     - assets/lang/en.json
     - assets/lang/ar.json
+
+    - assets/images/Mountains.png
     - assets/images/green_flag.png
     - assets/images/finished_flag.png
     - assets/images/locked_flag.png
-    #- assets/images/arab1-removedbg-preview.png
-    #- assets/images/arab2-removedbg-preview.png
-    #- assets/images/arab3-removedbg-preview.png
+    - assets/images/arab1-removebg-preview.png
+    - assets/images/arab2-removebg-preview.png
+    - assets/images/arab3-removebg-preview.png
+    - assets/images/white_background.png
+    - assets/images/dark_background.png
 
 

@@ -40,17 +40,17 @@ class LeaderboardPage extends StatelessWidget {
             itemBuilder: (context, index) {
               final data = docs[index].data() as Map<String, dynamic>;
               final name = data['username'] ?? 'Unknown';
-              final score = data['score'] ?? 0;
+              final points = data['points'] ?? 0;
 
               return ListTile(
                 leading: CircleAvatar(
-                  child: Text('${index + 1}'),
                   backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
+                  child: Text('${index + 1}'),
                 ),
                 title: Text(name),
                 trailing: Text(
-                  '$score pts',
+                  '$points pts',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               );

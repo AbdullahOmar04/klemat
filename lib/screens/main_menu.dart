@@ -51,12 +51,16 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     final amount = await userData.loadDiamonds();
     final streaks = await userData.loadStreaks();
     final stats = await userData.loadStats();
+    final levels = await userData.loadCurrentLevels();
 
     setState(() {
       diamonds = amount;
       winStreak = streaks['winStreak'] ?? 0;
       dailyWinStreak = streaks['dailyWinStreak'] ?? 0;
       timeWinStreak = streaks['timeWinStreak'] ?? 0;
+      currentFiveModeLevel = levels['five']!;
+      currentFourModeLevel = levels['four']!;
+      currentThreeModeLevel = levels['three']!;
 
       GameStatsSnapshot.played = stats['played'] ?? 0;
       GameStatsSnapshot.wins = stats['wins'] ?? 0;
@@ -82,7 +86,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         automaticallyImplyLeading: false,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -187,7 +191,17 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
         ),
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: SafeArea(
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+              Theme.of(context).brightness == Brightness.dark
+                  ? 'assets/images/dark_background.png'
+                  : 'assets/images/white_background.png',
+            ),
+            fit: BoxFit.cover,
+          ),
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

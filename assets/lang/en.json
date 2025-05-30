@@ -35,7 +35,7 @@
   "library": "Library",
   "stats": "Statistics",
   "pronounce": "Word pronunciation",
-  "leaderboard": "leaderboard",
+  "leaderboard": "Leaderboard",
   "challenges": "Challenges",
   "win_3_in_a_row": "Win 3 games in a row",
   "solve_under_2": "Solve a game in under 2 minutes",
@@ -50,5 +50,6 @@
   "letter_not_in_word": "Letter is not in the word",
   "bonus": "💎 Bonus:",
   "bonus_desc": "Make sure to complete the challenges to win diamonds!",
-  "got_it": "Got it!"
+  "got_it": "Got it!",
+  "not_enough_diamonds": "You don't have enough diamonds!"
 }

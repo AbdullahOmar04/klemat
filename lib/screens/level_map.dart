@@ -89,9 +89,13 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
 
     return SafeArea(
       child: Scaffold(
-        appBar: AppBar(backgroundColor: const Color.fromARGB(69, 53, 53, 53), elevation: 0),
+        appBar: AppBar(
+          backgroundColor: const Color.fromARGB(69, 53, 53, 53),
+          elevation: 0,
+        ),
         extendBodyBehindAppBar: true,
         body: LevelMap(
+          scrollToCurrentLevel: true,
           backgroundColor:
               mode == "Mode 5"
                   ? const Color.fromARGB(255, 142, 212, 241)
@@ -120,23 +124,26 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
               path: "assets/images/finished_flag.png",
               size: const Size(40, 42),
             ),
-            /*bgImagesToBePaintedRandomly: [
+            bgImagesToBePaintedRandomly: [
               ImageParams(
                 path: "assets/images/arab1-removebg-preview.png",
-                size: Size(80, 80),
-                repeatCountPerLevel: 0.5,
+                size: Size(200, 200),
+                repeatCountPerLevel: .5,
+                imagePositionFactor: 0,
               ),
               ImageParams(
                 path: "assets/images/arab2-removebg-preview.png",
-                size: Size(80, 80),
-                repeatCountPerLevel: 0.25,
+                size: Size(200, 200),
+                repeatCountPerLevel: .25,
+                imagePositionFactor: 0,
               ),
               ImageParams(
                 path: "assets/images/arab3-removebg-preview.png",
-                size: Size(80, 80),
-                repeatCountPerLevel: 0.25,
+                size: Size(200, 200),
+                repeatCountPerLevel: .25,
+                imagePositionFactor: 1,
               ),
-            ],*/
+            ],
           ),
         ),
       ),

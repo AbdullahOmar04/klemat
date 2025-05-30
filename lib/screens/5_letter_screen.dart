@@ -1,4 +1,5 @@
 // ignore_for_file: sort_child_properties_last, unused_field, no_leading_underscores_for_local_identifiers, unused_local_variable, constant_pattern_never_matches_value_type
+import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -38,6 +39,8 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
 
   int _diamonds = 0;
 
+  int _hintsUsed = 0;
+
   final _userData = UserDataService();
 
   final List<TextEditingController> _controllers = List.generate(
@@ -49,7 +52,7 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
 
   final List<String> _colorTypes = List.generate(35, (index) => "surface");
 
-  List<String?> _hintLetters = List.filled(35, null);
+  final List<String?> _hintLetters = List.filled(35, null);
   List<String> words = [];
   List<String> c_words = [];
   List<int> revealedIndices = [];
@@ -233,7 +236,7 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Spacer(),
+          Spacer(),
           for (int i = 0; i < 7; i++)
             AnimatedBuilder(
               animation: _shakeAnimations[i],
@@ -249,10 +252,13 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
                     children: [
                       for (int j = 4; j >= 0; j--)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3.0,
+                            vertical: 3,
+                          ),
                           child: SizedBox(
-                            height: 65,
-                            width: 65,
+                            height: 60,
+                            width: 60,
                             child: AnimatedBuilder(
                               animation: _scaleAnimations[i * 5 + j],
                               builder: (context, child) {
@@ -264,9 +270,6 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  // Show hint letter if:
-                                  // - The controller's text is empty (i.e., user hasn't typed)
-                                  // - And there is a hint letter set in _hintLetters list.
                                   if (_controllers[i * 5 + j].text.isEmpty &&
                                       _hintLetters[i * 5 + j] != null)
                                     Text(
@@ -328,26 +331,13 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
                 );
               },
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                onPressed: _revealHint,
-                icon: const Icon(Icons.search_rounded),
-                iconSize: 30,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 5,
-                  horizontal: 10,
-                ),
-              ),
-            ],
-          ),
+
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
             onSubmit: _submit,
             keyColors: keyColors,
+            onRevealHint: _revealHint,
           ),
         ],
       ),
@@ -355,37 +345,67 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void _revealHint() {
-  int startIndex = _currentRow * 5;
-  int endIndex = startIndex + 4;
+  void _revealHint() async {
+    if (_diamonds < 15) {
+      _vibrateTwice();
+      _shakeCurrentRow();
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          dismissDirection: DismissDirection.horizontal,
+          duration: const Duration(seconds: 2),
+          content: Text(
+            AppLocalizations.of(context).translate('not_enough_diamonds'),
+            style: TextStyle(color: Colors.grey.shade200, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 100,
+            right: 20,
+            left: 20,
+          ),
+        ),
+      );
+      return;
+    }
 
-  // Get all guessed letters so far
-  Set<String> guessed = _controllers
-      .map((c) => c.text.trim())
-      .where((c) => c.isNotEmpty)
-      .toSet();
+    int startIndex = _currentRow * 5;
+    int endIndex = startIndex + 4;
 
-  List<int> availableIndices = [];
+    Set<String> guessed =
+        _controllers
+            .map((c) => c.text.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet();
 
-  for (int i = startIndex; i <= endIndex; i++) {
-    final letter = _correctWord[i % 5];
-    if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
-      availableIndices.add(i);
+    List<int> availableIndices = [];
+
+    for (int i = startIndex; i <= endIndex; i++) {
+      final letter = _correctWord[i % 5];
+      if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
+        availableIndices.add(i);
+      }
+    }
+
+    if (!gameWon && availableIndices.isNotEmpty) {
+      int randomIndex =
+          availableIndices[Random().nextInt(availableIndices.length)];
+      String letter = _correctWord[randomIndex % 5];
+      if (!mounted) return;
+      setState(() {
+        _hintLetters[randomIndex] = letter;
+        _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
+        revealedIndices.add(randomIndex);
+        _hintsUsed++;
+        _diamonds -= 15;
+      });
+
+      unawaited(UserDataService().spendDiamonds(15));
     }
   }
-
-  if (!gameWon && availableIndices.isNotEmpty) {
-    int randomIndex =
-        availableIndices[Random().nextInt(availableIndices.length)];
-    String letter = _correctWord[randomIndex % 5];
-
-    setState(() {
-      _hintLetters[randomIndex] = letter;
-      _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
-      revealedIndices.add(randomIndex);
-    });
-  }
-}
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -581,14 +601,24 @@ void _revealHint() {
       await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
 
       showDefinitionDialog(context, _correctWord);
-
       currentFiveModeLevel++;
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
-          .update({
-            'score': FieldValue.increment(1), 
-          });
+          .update({'currentLevel5': currentFiveModeLevel});
+
+      points = calculatePoints("Mode 5", _currentRow, _hintsUsed);
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .set({
+            'points': FieldValue.increment(points),
+            'username':
+                FirebaseAuth.instance.currentUser?.email?.split('@').first ??
+                'Guest',
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } else {
       winStreak = 0;
 
@@ -705,6 +735,7 @@ void _revealHint() {
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,
       timeWinStreak: timeWinStreak,
+      points: points,
     );
   }
 

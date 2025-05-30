@@ -120,136 +120,188 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    resizeToAvoidBottomInset: true,
-    body: SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade400, width: 1.5),
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.background,
+                          border: Border.all(
+                            color: colorScheme.primary,
+                            width: 1.5,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SegmentedButton<int>(
-                            showSelectedIcon: false,
-                            style: ButtonStyle(
-                              foregroundColor: WidgetStateProperty.resolveWith<Color>(
-                                (states) => states.contains(WidgetState.selected)
-                                    ? Colors.white
-                                    : Colors.grey.shade700,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.onSurface.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SegmentedButton<int>(
+                              showSelectedIcon: false,
+                              style: ButtonStyle(
+                                foregroundColor:
+                                    WidgetStateProperty.resolveWith(
+                                      (states) =>
+                                          states.contains(WidgetState.selected)
+                                              ? Colors.white
+                                              : colorScheme.tertiary,
+                                    ),
+                                backgroundColor:
+                                    WidgetStateProperty.resolveWith(
+                                      (states) =>
+                                          states.contains(WidgetState.selected)
+                                              ? colorScheme.primary
+                                              : colorScheme.surface,
+                                    ),
+                              ),
+                              segments: <ButtonSegment<int>>[
+                                ButtonSegment(
+                                  value: 1,
+                                  label: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    ).translate('log_in'),
+                                  ),
+                                ),
+                                ButtonSegment(
+                                  value: 2,
+                                  label: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    ).translate('sign_up'),
+                                  ),
+                                ),
+                              ],
+                              selected: <int>{selectedTab},
+                              onSelectionChanged: (Set<int> newSelection) {
+                                setState(() {
+                                  selectedTab = newSelection.first;
+                                  errorMessage = null;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            TextField(
+                              controller: emailController,
+                              style: TextStyle(color: colorScheme.onSurface),
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                ).translate('email'),
+                                labelStyle: TextStyle(
+                                  color: colorScheme.onSurface,
+                                ),
+                                border: OutlineInputBorder(),
                               ),
                             ),
-                            segments: <ButtonSegment<int>>[
-                              ButtonSegment(
-                                value: 1,
-                                label: Text(AppLocalizations.of(context).translate('log_in')),
+                            const SizedBox(height: 15),
+                            TextField(
+                              controller: passwordController,
+                              
+                              obscureText: true,
+                              style: TextStyle(color: colorScheme.onSurface),
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                ).translate('password'),
+                                labelStyle: TextStyle(
+                                  color: colorScheme.onSurface,
+                                ),
+                                border: OutlineInputBorder(),
                               ),
-                              ButtonSegment(
-                                value: 2,
-                                label: Text(AppLocalizations.of(context).translate('sign_up')),
-                              ),
-                            ],
-                            selected: <int>{selectedTab},
-                            onSelectionChanged: (Set<int> newSelection) {
-                              setState(() {
-                                selectedTab = newSelection.first;
-                                errorMessage = null;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 20),
-                          TextField(
-                            controller: emailController,
-                            decoration: InputDecoration(
-                              labelText: AppLocalizations.of(context).translate('email'),
-                              border: const OutlineInputBorder(),
                             ),
-                          ),
-                          const SizedBox(height: 15),
-                          TextField(
-                            controller: passwordController,
-                            decoration: InputDecoration(
-                              labelText: AppLocalizations.of(context).translate('password'),
-                              border: const OutlineInputBorder(),
-                            ),
-                            obscureText: true,
-                          ),
-                          const SizedBox(height: 20),
-                          isLoading
-                              ? const CircularProgressIndicator()
-                              : SizedBox(
+                            const SizedBox(height: 20),
+                            isLoading
+                                ? const CircularProgressIndicator()
+                                : SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
-                                    onPressed: selectedTab == 1 ? signIn : signUp,
+                                    onPressed:
+                                        selectedTab == 1 ? signIn : signUp,
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      backgroundColor: colorScheme.primary,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                     ),
                                     child: Text(
                                       selectedTab == 1
-                                          ? AppLocalizations.of(context).translate('log_in')
-                                          : AppLocalizations.of(context).translate('sign_up'),
-                                      style: const TextStyle(color: Colors.grey),
+                                          ? AppLocalizations.of(
+                                            context,
+                                          ).translate('log_in')
+                                          : AppLocalizations.of(
+                                            context,
+                                          ).translate('sign_up'),
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                      ),
                                     ),
                                   ),
                                 ),
-                          const SizedBox(height: 10),
-                          TextButton(
-                            onPressed: continueAsGuest,
-                            child: Text(
-                              AppLocalizations.of(context).translate('cont_guest'),
-                              style: const TextStyle(color: Colors.blue),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _forgotPassword,
-                            child: Text(AppLocalizations.of(context).translate('forgot_pass')),
-                          ),
-                          if (errorMessage != null) ...[
                             const SizedBox(height: 10),
-                            Text(
-                              errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
+                            TextButton(
+                              onPressed: continueAsGuest,
+                              child: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).translate('cont_guest'),
+                                style: TextStyle(color: colorScheme.secondary),
+                              ),
                             ),
+                            TextButton(
+                              onPressed: _forgotPassword,
+                              child: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).translate('forgot_pass'),
+                                style: TextStyle(color: colorScheme.tertiary),
+                              ),
+                            ),
+                            if (errorMessage != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                errorMessage!,
+                                style: TextStyle(color: colorScheme.error),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
+                      const SizedBox(height: 30),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

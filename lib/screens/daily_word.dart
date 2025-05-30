@@ -1,4 +1,5 @@
 // ignore_for_file: sort_child_properties_last, unused_field, no_leading_underscores_for_local_identifiers, unused_local_variable, constant_pattern_never_matches_value_type, use_build_context_synchronously
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -40,7 +41,9 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
   final List<String> _colorTypes = List.generate(35, (index) => "surface");
 
-  List<String?> _hintLetters = List.filled(35, null);
+  int _hintsUsed = 0;
+
+  final List<String?> _hintLetters = List.filled(35, null);
   List<String> words = [];
   List<String> c_words = [];
   List<int> revealedIndices = [];
@@ -94,6 +97,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     }
     _gameTimer = GameTimer(
       onTick: () {
+        if (!mounted) return;
         setState(() {});
       },
     );
@@ -129,6 +133,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
   Future<void> _loadUserData() async {
     final amount = await _userData.loadDiamonds();
+    if (!mounted) return;
     setState(() {
       _diamonds = amount;
     });
@@ -146,6 +151,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     final data = json.decode(jsonString);
     final data2 = json.decode(jsonString2);
 
+    if (!mounted) return;
     setState(() {
       words = List<String>.from(data['words']);
       c_words = List<String>.from(data2['c_words']);
@@ -161,7 +167,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     } else {
       _gameTimer.start();
     }
-
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -235,7 +241,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
     int savedElapsedSeconds = prefs.getInt('game_timer') ?? 0;
     _gameTimer.elapsedSeconds = savedElapsedSeconds;
-
+    if (!mounted) return;
     setState(() {}); // Update the UI with restored state
   }
 
@@ -327,10 +333,13 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                     children: [
                       for (int j = 4; j >= 0; j--)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3.0,
+                            vertical: 3,
+                          ),
                           child: SizedBox(
-                            height: 65,
-                            width: 65,
+                            height: 60,
+                            width: 60,
                             child: AnimatedBuilder(
                               animation: _scaleAnimations[i * 5 + j],
                               builder: (context, child) {
@@ -342,9 +351,6 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  // Show hint letter if:
-                                  // - The controller's text is empty (i.e., user hasn't typed)
-                                  // - And there is a hint letter set in _hintLetters list.
                                   if (_controllers[i * 5 + j].text.isEmpty &&
                                       _hintLetters[i * 5 + j] != null)
                                     Text(
@@ -354,7 +360,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                                         fontWeight: FontWeight.bold,
                                         color:
                                             Colors
-                                                .grey, // or use Color with some opacity, e.g., Colors.grey.withOpacity(0.5)
+                                                .grey,
                                       ),
                                     ),
                                   TextField(
@@ -406,35 +412,12 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                 );
               },
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                onPressed: _revealHint,
-                icon: const Icon(Icons.search_rounded),
-                iconSize: 35,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 5,
-                  horizontal: 10,
-                ),
-              ),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.keyboard),
-                iconSize: 35,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 5,
-                  horizontal: 10,
-                ),
-              ),
-            ],
-          ),
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
             onSubmit: _submit,
             keyColors: keyColors,
+            onRevealHint: _revealHint,
           ),
         ],
       ),
@@ -442,13 +425,47 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  void _revealHint() {
+  void _revealHint() async {
+    if (_diamonds < 15) {
+      _vibrateTwice();
+      _shakeCurrentRow();
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          dismissDirection: DismissDirection.horizontal,
+          duration: const Duration(seconds: 2),
+          content: Text(
+            AppLocalizations.of(context).translate('not_enough_diamonds'),
+            style: TextStyle(color: Colors.grey.shade200, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 100,
+            right: 20,
+            left: 20,
+          ),
+        ),
+      );
+      return;
+    }
+
     int startIndex = _currentRow * 5;
     int endIndex = startIndex + 4;
+
+    Set<String> guessed =
+        _controllers
+            .map((c) => c.text.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet();
+
     List<int> availableIndices = [];
 
     for (int i = startIndex; i <= endIndex; i++) {
-      if (!revealedIndices.contains(i)) {
+      final letter = _dailyWord[i % 5];
+      if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
         availableIndices.add(i);
       }
     }
@@ -457,12 +474,16 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       int randomIndex =
           availableIndices[Random().nextInt(availableIndices.length)];
       String letter = _dailyWord[randomIndex % 5];
-
+      if (!mounted) return;
       setState(() {
         _hintLetters[randomIndex] = letter;
         _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
         revealedIndices.add(randomIndex);
+        _hintsUsed++;
+        _diamonds -= 15;
       });
+
+      unawaited(UserDataService().spendDiamonds(15));
     }
   }
 
@@ -487,7 +508,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
           newFillColors[i] = Colors.transparent;
       }
     }
-
+    if (!mounted) return;
     setState(() {
       _fillColors = newFillColors;
     });
@@ -519,7 +540,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       }
       newKeyColors[letter] = keyColor;
     }
-
+    if (!mounted) return;
     setState(() {
       keyColors = newKeyColors;
     });
@@ -532,7 +553,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       final controller = _controllers[_currentTextfield];
 
       controller.text = myText;
-
+      if (!mounted) return;
       setState(() {
         _triggerPopUp(_currentTextfield);
         _currentTextfield++;
@@ -545,6 +566,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
   void _backspace() {
     if ((_currentTextfield > 0 && _fiveLettersStop > 0) && gameWon == false) {
+      if (!mounted) return;
       setState(() {
         _currentTextfield--;
         _fiveLettersStop--;
@@ -636,13 +658,12 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
         _colorTypes[k] = "onPrimary";
       }
-
+      if (!mounted) return;
       setState(() {
         gameWon = true;
         _gameTimer.stop();
       });
 
-      // Rewards (outside setState)
       if (winStreak < 3) {
         winStreak++;
       } else {
@@ -666,17 +687,24 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         winStreak: winStreak,
         dailyWinStreak: dailyWinStreak,
         timeWinStreak: timeWinStreak,
+        points: points,
       );
 
       await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
 
       showDefinitionDialog(context, _dailyWord);
+      points = calculatePoints("Mode 5", _currentRow, _hintsUsed);
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
-          .update({
-            'score': FieldValue.increment(1),
-          });
+          .set({
+            'points': FieldValue.increment(points),
+            'username':
+                FirebaseAuth.instance.currentUser?.email?.split('@').first ??
+                'Guest',
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
@@ -728,6 +756,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,
       timeWinStreak: timeWinStreak,
+      points: points,
     );
   }
 

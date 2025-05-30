@@ -22,6 +22,7 @@ int currentThreeModeLevel = 1;
 int winStreak = 0;
 int dailyWinStreak = 0;
 int timeWinStreak = 0;
+int points = 0;
 
 class GameStatsSnapshot {
   static int played = 0;
@@ -131,19 +132,15 @@ void challenges(BuildContext context) {
 }
 
 Widget coins(BuildContext context, int amount) {
-  return Container(
-    margin: const EdgeInsets.only(right: 12),
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.primary,
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.diamond, size: 20, color: Colors.cyanAccent),
-        const SizedBox(width: 4),
-        Text('$amount', style: const TextStyle(color: Colors.white70)),
-      ],
+  return ElevatedButton.icon(
+    onPressed: () => openShop(context),
+    icon: Icon(Icons.diamond_rounded, color: Colors.cyan, size: 20),
+    label: Text('$amount', style: TextStyle(color: Colors.white)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      elevation: 5,
     ),
   );
 }
@@ -154,6 +151,7 @@ void openShop(BuildContext context) {
     builder: (context) {
       return AlertDialog(
         title: Text(AppLocalizations.of(context).translate('shop')),
+        actions: [Text('Coming Soon!')],
       );
     },
   );
@@ -202,12 +200,14 @@ class UserDataService {
     required int winStreak,
     required int dailyWinStreak,
     required int timeWinStreak,
+    required int points,
   }) async {
     if (uid == null) return;
     await _userRef.doc(uid).set({
       'winStreak': winStreak,
       'dailyWinStreak': dailyWinStreak,
       'timeWinStreak': timeWinStreak,
+      'points': points,
     }, SetOptions(merge: true));
   }
 
@@ -273,7 +273,31 @@ class UserDataService {
     };
   }
 
-  /// Initialize user data on sign up
+  Future<void> spendDiamonds(int amount) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'diamonds': FieldValue.increment(-amount),
+      });
+    }
+  }
+
+  Future<Map<String, int>> loadCurrentLevels() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user?.uid)
+            .get();
+    final data = doc.data() ?? {};
+
+    return {
+      'five': data['currentLevel5'],
+      'four': data['currentLevel4'],
+      'three': data['currentLevel3'],
+    };
+  }
+
   Future<void> initializeUser({required String username}) async {
     if (uid == null) return;
     final doc = await _userRef.doc(uid).get();
@@ -1116,7 +1140,6 @@ void showDefinitionDialog(BuildContext context, String word) {
   );
 }
 
-
 void showHowToPlayDialog(BuildContext context) {
   showDialog(
     context: context,
@@ -1133,22 +1156,32 @@ void showHowToPlayDialog(BuildContext context) {
             children: [
               Text(
                 AppLocalizations.of(context).translate('goal'),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(AppLocalizations.of(context).translate('goal_desc')),
               const SizedBox(height: 15),
               Text(
                 AppLocalizations.of(context).translate('letter_colors'),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               _colorHintRow(
                 Colors.green,
-                AppLocalizations.of(context).translate('correct_letter_position'),
+                AppLocalizations.of(
+                  context,
+                ).translate('correct_letter_position'),
               ),
               _colorHintRow(
                 Colors.orange,
-                AppLocalizations.of(context).translate('correct_letter_wrong_spot'),
+                AppLocalizations.of(
+                  context,
+                ).translate('correct_letter_wrong_spot'),
               ),
               _colorHintRow(
                 Colors.grey,
@@ -1157,7 +1190,10 @@ void showHowToPlayDialog(BuildContext context) {
               const SizedBox(height: 15),
               Text(
                 AppLocalizations.of(context).translate('bonus'),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(AppLocalizations.of(context).translate('bonus_desc')),
             ],
@@ -1192,4 +1228,72 @@ Widget _colorHintRow(Color color, String text) {
       ],
     ),
   );
+}
+
+int calculatePoints(String mode,int wonAtRow, int hintsUsed) {
+
+  if (mode == 'Mode 5') {
+    switch (wonAtRow) {
+    case 0:
+      points += 10;
+    case 1:
+      points += 9;
+    case 2:
+      points += 8;
+    case 3:
+      points += 7;
+    case 4:
+      points += 6;
+    case 5:
+      points += 5;
+    case 6:
+      points += 4;
+  }
+  }
+  
+if (mode == 'Mode 4') {
+    switch (wonAtRow) {
+    case 0:
+      points += 8;
+    case 1:
+      points += 7;
+    case 2:
+      points += 6;
+    case 3:
+      points += 5;
+    case 4:
+      points += 4;
+    case 5:
+      points += 3;
+    case 6:
+      points += 2;
+  }
+  }
+
+  if (mode == 'Mode 3') {
+    switch (wonAtRow) {
+    case 0:
+      points += 6;
+    case 1:
+      points += 5;
+    case 2:
+      points += 4;
+    case 3:
+      points += 3;
+    case 4:
+      points += 2;
+    case 5:
+      points += 1;
+    case 6:
+      points += 1;
+  }
+  }
+
+  for (int i = 0; i < hintsUsed; i++) {
+    if (points >= 1) {
+      points -= 1;
+    }
+  }
+
+  return points;
 }

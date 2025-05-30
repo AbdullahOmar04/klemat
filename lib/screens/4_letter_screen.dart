@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -35,6 +36,8 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
   int _currentRow = 0;
   int _diamonds = 0;
+  // ignore: unused_field
+  int _hintsUsed = 0;
   final _userData = UserDataService();
 
   final List<TextEditingController> _controllers = List.generate(
@@ -46,7 +49,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
   final List<String> _colorTypes = List.generate(28, (index) => "surface");
 
-  List<String?> _hintLetters = List.filled(28, null);
+  final List<String?> _hintLetters = List.filled(28, null);
   List<String> words = [];
   List<String> c_words = [];
   List<int> revealedIndices = [];
@@ -240,10 +243,13 @@ class _FourLetterScreen extends State<FourLetterScreen>
                     children: [
                       for (int j = 3; j >= 0; j--)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3.0,
+                            vertical: 3,
+                          ),
                           child: SizedBox(
-                            height: 65,
-                            width: 65,
+                            height: 60,
+                            width: 60,
                             child: AnimatedBuilder(
                               animation: _scaleAnimations[i * 4 + j],
                               builder: (context, child) {
@@ -319,26 +325,12 @@ class _FourLetterScreen extends State<FourLetterScreen>
                 );
               },
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                onPressed: _revealHint,
-                icon: const Icon(Icons.search_rounded),
-                iconSize: 35,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 5,
-                  horizontal: 10,
-                ),
-              ),
-            ],
-          ),
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
             onSubmit: _submit,
             keyColors: keyColors,
+            onRevealHint: _revealHint,
           ),
         ],
       ),
@@ -347,37 +339,68 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  void _revealHint() {
-  int startIndex = _currentRow * 4;
-  int endIndex = startIndex + 3;
+  void _revealHint() async {
+    if (_diamonds < 15) {
+      _vibrateTwice();
+      _shakeCurrentRow();
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          dismissDirection: DismissDirection.horizontal,
+          duration: const Duration(seconds: 2),
+          content: Text(
+            AppLocalizations.of(context).translate('not_enough_diamonds'),
+            style: TextStyle(color: Colors.grey.shade200, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 100,
+            right: 20,
+            left: 20,
+          ),
+        ),
+      );
+      return;
+    }
 
-  // Get all guessed letters so far
-  Set<String> guessed = _controllers
-      .map((c) => c.text.trim())
-      .where((c) => c.isNotEmpty)
-      .toSet();
+    int startIndex = _currentRow * 4;
+    int endIndex = startIndex + 3;
 
-  List<int> availableIndices = [];
+    Set<String> guessed =
+        _controllers
+            .map((c) => c.text.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet();
 
-  for (int i = startIndex; i <= endIndex; i++) {
-    final letter = _correctWord[i % 4];
-    if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
-      availableIndices.add(i);
+    List<int> availableIndices = [];
+
+    for (int i = startIndex; i <= endIndex; i++) {
+      final letter = _correctWord[i % 4];
+      if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
+        availableIndices.add(i);
+      }
+    }
+
+    if (!gameWon && availableIndices.isNotEmpty) {
+      int randomIndex =
+          availableIndices[Random().nextInt(availableIndices.length)];
+      String letter = _correctWord[randomIndex % 4];
+
+      setState(() {
+        _hintLetters[randomIndex] = letter;
+        _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
+        revealedIndices.add(randomIndex);
+        _hintsUsed++;
+        _diamonds -= 15;
+      });
+
+      // Firestore update in background
+      unawaited(UserDataService().spendDiamonds(15));
     }
   }
-
-  if (!gameWon && availableIndices.isNotEmpty) {
-    int randomIndex =
-        availableIndices[Random().nextInt(availableIndices.length)];
-    String letter = _correctWord[randomIndex % 4];
-
-    setState(() {
-      _hintLetters[randomIndex] = letter;
-      _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
-      revealedIndices.add(randomIndex);
-    });
-  }
-}
 
   /////////////////////////////////////////////////////////////////////////////////////////////
   ///
@@ -576,7 +599,20 @@ class _FourLetterScreen extends State<FourLetterScreen>
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
-          .update({'score': FieldValue.increment(1)});
+          .update({'currentlevel4': currentFourModeLevel});
+
+      points = calculatePoints("Mode 4", _currentRow, _hintsUsed);
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .set({
+            'points': FieldValue.increment(points),
+            'username':
+                FirebaseAuth.instance.currentUser?.email?.split('@').first ??
+                'Guest',
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
@@ -674,6 +710,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,
       timeWinStreak: timeWinStreak,
+      points: points,
     );
   }
 

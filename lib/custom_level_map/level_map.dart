@@ -10,14 +10,13 @@ class LevelMap extends StatelessWidget {
   final LevelMapParams levelMapParams;
   final Color backgroundColor;
 
-  /// If set to false, scroll starts from the bottom end (level 1).
   final bool scrollToCurrentLevel;
   const LevelMap({
-    Key? key,
+    super.key,
     required this.levelMapParams,
     this.backgroundColor = Colors.transparent,
     this.scrollToCurrentLevel = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +119,7 @@ class LevelMap extends StatelessWidget {
             ),
             onTap: params.currentLevelImage.onPressed,
           ),
-        );
-        
-        // Debug logging
-        print("Added gesture area for green circle at: ${centerWidth}, $y");
+        );        
       }
     }
     

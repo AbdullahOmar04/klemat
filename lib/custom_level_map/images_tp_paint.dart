@@ -23,7 +23,7 @@ class ImagesToPaint {
       identical(this, other) ||
       other is ImagesToPaint &&
           runtimeType == other.runtimeType &&
-          bgImages == other.bgImages &&
+          _listEquals(bgImages, other.bgImages) &&
           startLevelImage == other.startLevelImage &&
           currentLevelImage == other.currentLevelImage &&
           pathEndImage == other.pathEndImage &&
@@ -32,10 +32,24 @@ class ImagesToPaint {
 
   @override
   int get hashCode =>
-      bgImages.hashCode ^
+      _listHash(bgImages) ^
       startLevelImage.hashCode ^
       currentLevelImage.hashCode ^
       pathEndImage.hashCode ^
       lockedLevelImage.hashCode ^
       completedLevelImage.hashCode;
+
+  bool _listEquals<T>(List<T>? a, List<T>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null || a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  int _listHash<T>(List<T>? list) {
+    if (list == null) return 0;
+    return list.fold(0, (hash, item) => hash ^ item.hashCode);
+  }
 }

@@ -145,7 +145,6 @@ class LevelMapPainter extends CustomPainter {
     int thisLevel,
   ) {
     final double _dashFactor = params.dashLengthFactor;
-    //TODO: Customise the empty dash length with this multiplication factor 2.
     for (double t = _dashFactor; t <= 1; t += _dashFactor * 2) {
       Offset offset1 = Offset(
         _compute(t, p1.dx, p2.dx, p3.dx),

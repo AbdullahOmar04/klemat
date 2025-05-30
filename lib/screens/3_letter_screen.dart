@@ -1,4 +1,5 @@
 // ignore_for_file: non_constant_identifier_names
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -32,6 +33,9 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
 
   int _fiveLettersStop = 0;
 
+  // ignore: unused_field
+  int _hintsUsed = 0;
+
   late String _correctWord;
 
   int _currentRow = 0;
@@ -47,7 +51,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
 
   final List<String> _colorTypes = List.generate(21, (index) => "surface");
 
-  List<String?> _hintLetters = List.filled(21, null);
+  final List<String?> _hintLetters = List.filled(21, null);
   List<String> words = [];
   List<String> c_words = [];
   final bool _readOnly = true;
@@ -240,10 +244,13 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
                     children: [
                       for (int j = 2; j >= 0; j--)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3.0,
+                            vertical: 3,
+                          ),
                           child: SizedBox(
-                            height: 65,
-                            width: 65,
+                            height: 60,
+                            width: 60,
                             child: AnimatedBuilder(
                               animation: _scaleAnimations[i * 3 + j],
                               builder: (context, child) {
@@ -319,26 +326,13 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
                 );
               },
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                onPressed: _revealHint,
-                icon: const Icon(Icons.search_rounded),
-                iconSize: 35,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 5,
-                  horizontal: 10,
-                ),
-              ),
-            ],
-          ),
+
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
             onSubmit: _submit,
             keyColors: keyColors,
+            onRevealHint: _revealHint,
           ),
         ],
       ),
@@ -346,11 +340,36 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  void _revealHint() {
+  void _revealHint() async {
+    if (_diamonds < 15) {
+      _vibrateTwice();
+      _shakeCurrentRow();
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          dismissDirection: DismissDirection.horizontal,
+          duration: const Duration(seconds: 2),
+          content: Text(
+            AppLocalizations.of(context).translate('not_enough_diamonds'),
+            style: TextStyle(color: Colors.grey.shade200, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 100,
+            right: 20,
+            left: 20,
+          ),
+        ),
+      );
+      return;
+    }
+
     int startIndex = _currentRow * 3;
     int endIndex = startIndex + 2;
 
-    // Get all guessed letters so far
     Set<String> guessed =
         _controllers
             .map((c) => c.text.trim())
@@ -371,11 +390,17 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
           availableIndices[Random().nextInt(availableIndices.length)];
       String letter = _correctWord[randomIndex % 3];
 
+      if (!mounted) return;
       setState(() {
         _hintLetters[randomIndex] = letter;
         _fillColors[randomIndex] = const Color.fromARGB(122, 158, 158, 158);
         revealedIndices.add(randomIndex);
+        _hintsUsed++;
+        _diamonds -= 15;
       });
+
+      // Firestore update in background
+      unawaited(UserDataService().spendDiamonds(15));
     }
   }
 
@@ -577,9 +602,19 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
-          .update({
-            'score': FieldValue.increment(1), // or any score increment logic
-          });
+          .update({'currentlevel3': currentThreeModeLevel});
+      points = calculatePoints("Mode 3", _currentRow, _hintsUsed);
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .set({
+            'points': FieldValue.increment(points),
+            'username':
+                FirebaseAuth.instance.currentUser?.email?.split('@').first ??
+                'Guest',
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     } else {
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
@@ -679,6 +714,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,
       timeWinStreak: timeWinStreak,
+      points: points,
     );
   }
 

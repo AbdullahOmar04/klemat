@@ -9,21 +9,38 @@ import 'package:klemat/themes/themes.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:klemat/themes/app_localization.dart';
 import 'package:klemat/helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
+  final prefs = await SharedPreferences.getInstance();
+  final langCode = prefs.getString('languageCode') ?? 'ar';
+  final themeModeStr = prefs.getString('themeMode') ?? 'system';
+
   runApp(
     ChangeNotifierProvider(
-      create: (_) => ThemeNotifier(),
-      child: const MyApp(),
+      create: (_) => ThemeNotifier(initialMode: _parseThemeMode(themeModeStr)),
+      child: MyApp(locale: Locale(langCode)),
     ),
   );
 }
 
+ThemeMode _parseThemeMode(String mode) {
+  switch (mode) {
+    case 'light':
+      return ThemeMode.light;
+    case 'dark':
+      return ThemeMode.dark;
+    default:
+      return ThemeMode.system;
+  }
+}
+
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final Locale locale;
+  const MyApp({super.key, required this.locale});
 
   @override
   _MyAppState createState() => _MyAppState();
@@ -35,9 +52,18 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Locale _locale = const Locale('ar');
+  late Locale _locale;
 
-  void changeLocale(Locale locale) {
+  @override
+  void initState() {
+    super.initState();
+    _locale = widget.locale;
+  }
+
+  void changeLocale(Locale locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('languageCode', locale.languageCode);
+
     setState(() {
       _locale = locale;
     });
@@ -48,11 +74,8 @@ class _MyAppState extends State<MyApp> {
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email;
     final usernamelong = email?.split('@').first ?? 'Guest';
-    var username = usernamelong;
-    if (usernamelong.length > 12) {
-      final usernameshort = usernamelong.split('').getRange(0, 13).join();
-      username = usernameshort;
-    }
+    final username =
+        usernamelong.length > 12 ? usernamelong.substring(0, 13) : usernamelong;
 
     return Consumer<ThemeNotifier>(
       builder: (context, themeNotifier, child) {
@@ -75,10 +98,7 @@ class _MyAppState extends State<MyApp> {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeNotifier.themeMode,
-          home:
-              user != null
-                  ? MainMenu(username: username)
-                  : const LoginPage(),
+          home: user != null ? MainMenu(username: username) : const LoginPage(),
         );
       },
     );

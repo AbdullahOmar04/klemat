@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 final ThemeData lightTheme = ThemeData(
   colorScheme: ColorScheme.light(
-    surface: Colors.grey.shade100,
+    surface: const Color(0xECECECEC),
     primary: Colors.grey.shade400,
     secondary: Colors.grey.shade600,
     error: Colors.red.shade600,
@@ -16,7 +16,7 @@ final ThemeData lightTheme = ThemeData(
 
 final ThemeData darkTheme = ThemeData(
   colorScheme: ColorScheme.dark(
-    surface: Colors.grey.shade900,
+    surface: Color.fromARGB(255, 36, 36, 36),
     primary: Colors.grey.shade600,
     secondary: Colors.grey.shade600,
     error: const Color.fromARGB(255, 116, 8, 0),
