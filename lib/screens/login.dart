@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
@@ -30,12 +28,14 @@ class _LoginPageState extends State<LoginPage> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
+      final user = FirebaseAuth.instance.currentUser!;
+      final displayName = user.email?.split('@').first ?? 'User';
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => MainMenu(username: emailController.text.trim()),
+          builder: (context) => MainMenu(username: displayName),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -59,22 +59,55 @@ class _LoginPageState extends State<LoginPage> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      final user = FirebaseAuth.instance.currentUser;
-      final email = user?.email;
-      final usernamelong = email?.split('@').first ?? 'Guest';
-      var username = usernamelong;
-      if (usernamelong.length > 12) {
-        final usernameshort = usernamelong.split('').getRange(0, 13).join();
-        username = usernameshort;
+      final user = FirebaseAuth.instance.currentUser!;
+      final rawEmail = user.email ?? '';
+      String username = rawEmail.split('@').first;
+      if (username.length > 12) {
+        username = username.substring(0, 12);
       }
-
       await UserDataService().initializeUser(username: username);
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => MainMenu(username: emailController.text.trim()),
+          builder: (context) => MainMenu(username: username),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        errorMessage = e.message;
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> continueAsGuest() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+    try {
+      // 1) Sign in anonymously
+      final result = await FirebaseAuth.instance.signInAnonymously();
+      final user = result.user!;
+
+      // 2) Give them a temporary “display name” to show in UI
+      //    (you can store a “guest_1234” in Firestore if you like,
+      //     but the important thing is we now have user.uid)
+      final guestName = 'Guest-${user.uid.substring(0, 5)}';
+
+      // (Optional) initialize their user doc in Firestore if desired:
+      await UserDataService().initializeUser(username: guestName);
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MainMenu(username: guestName),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -90,34 +123,22 @@ class _LoginPageState extends State<LoginPage> {
 
   void _forgotPassword() async {
     final email = emailController.text.trim();
-
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter your email address.')),
+        const SnackBar(content: Text('Please enter your email address.')),
       );
       return;
     }
-
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Password reset email sent.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset email sent.')),
+      );
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message ?? 'Error occurred.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Error occurred.')),
+      );
     }
-  }
-
-  void continueAsGuest() {
-    Random guestNum = Random(1000);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MainMenu(username: 'Guest-$guestNum'),
-      ),
-    );
   }
 
   @override
@@ -162,35 +183,33 @@ class _LoginPageState extends State<LoginPage> {
                               showSelectedIcon: false,
                               style: ButtonStyle(
                                 foregroundColor:
-                                    WidgetStateProperty.resolveWith(
-                                      (states) =>
-                                          states.contains(WidgetState.selected)
-                                              ? Colors.white
-                                              : colorScheme.tertiary,
-                                    ),
+                                    MaterialStateProperty.resolveWith(
+                                  (states) => states
+                                          .contains(MaterialState.selected)
+                                      ? Colors.white
+                                      : colorScheme.tertiary,
+                                ),
                                 backgroundColor:
-                                    WidgetStateProperty.resolveWith(
-                                      (states) =>
-                                          states.contains(WidgetState.selected)
-                                              ? colorScheme.primary
-                                              : colorScheme.surface,
-                                    ),
+                                    MaterialStateProperty.resolveWith(
+                                  (states) => states
+                                          .contains(MaterialState.selected)
+                                      ? colorScheme.primary
+                                      : colorScheme.surface,
+                                ),
                               ),
                               segments: <ButtonSegment<int>>[
                                 ButtonSegment(
                                   value: 1,
                                   label: Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    ).translate('log_in'),
+                                    AppLocalizations.of(context)
+                                        .translate('log_in'),
                                   ),
                                 ),
                                 ButtonSegment(
                                   value: 2,
                                   label: Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    ).translate('sign_up'),
+                                    AppLocalizations.of(context)
+                                        .translate('sign_up'),
                                   ),
                                 ),
                               ],
@@ -205,88 +224,91 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(height: 20),
                             TextField(
                               controller: emailController,
-                              style: TextStyle(color: colorScheme.onSurface),
+                              style:
+                                  TextStyle(color: colorScheme.onSurface),
                               decoration: InputDecoration(
-                                labelText: AppLocalizations.of(
-                                  context,
-                                ).translate('email'),
+                                labelText: AppLocalizations.of(context)
+                                    .translate('email'),
                                 labelStyle: TextStyle(
                                   color: colorScheme.onSurface,
                                 ),
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                             const SizedBox(height: 15),
                             TextField(
                               controller: passwordController,
-                              
                               obscureText: true,
-                              style: TextStyle(color: colorScheme.onSurface),
+                              style:
+                                  TextStyle(color: colorScheme.onSurface),
                               decoration: InputDecoration(
-                                labelText: AppLocalizations.of(
-                                  context,
-                                ).translate('password'),
+                                labelText: AppLocalizations.of(context)
+                                    .translate('password'),
                                 labelStyle: TextStyle(
                                   color: colorScheme.onSurface,
                                 ),
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                             const SizedBox(height: 20),
                             isLoading
                                 ? const CircularProgressIndicator()
                                 : SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        selectedTab == 1 ? signIn : signUp,
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: selectedTab == 1
+                                          ? signIn
+                                          : signUp,
+                                      style: ElevatedButton.styleFrom(
+                                        padding:
+                                            const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        backgroundColor:
+                                            colorScheme.primary,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
                                       ),
-                                      backgroundColor: colorScheme.primary,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      selectedTab == 1
-                                          ? AppLocalizations.of(
-                                            context,
-                                          ).translate('log_in')
-                                          : AppLocalizations.of(
-                                            context,
-                                          ).translate('sign_up'),
-                                      style: TextStyle(
-                                        color: colorScheme.onSurface,
+                                      child: Text(
+                                        selectedTab == 1
+                                            ? AppLocalizations.of(context)
+                                                .translate('log_in')
+                                            : AppLocalizations.of(context)
+                                                .translate('sign_up'),
+                                        style: TextStyle(
+                                          color:
+                                              colorScheme.onSurface,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
                             const SizedBox(height: 10),
                             TextButton(
                               onPressed: continueAsGuest,
                               child: Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).translate('cont_guest'),
-                                style: TextStyle(color: colorScheme.secondary),
+                                AppLocalizations.of(context)
+                                    .translate('cont_guest'),
+                                style: TextStyle(
+                                    color: colorScheme.secondary),
                               ),
                             ),
                             TextButton(
                               onPressed: _forgotPassword,
                               child: Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).translate('forgot_pass'),
-                                style: TextStyle(color: colorScheme.tertiary),
+                                AppLocalizations.of(context)
+                                    .translate('forgot_pass'),
+                                style: TextStyle(
+                                    color: colorScheme.tertiary),
                               ),
                             ),
                             if (errorMessage != null) ...[
                               const SizedBox(height: 10),
                               Text(
                                 errorMessage!,
-                                style: TextStyle(color: colorScheme.error),
+                                style: TextStyle(
+                                    color: colorScheme.error),
                                 textAlign: TextAlign.center,
                               ),
                             ],

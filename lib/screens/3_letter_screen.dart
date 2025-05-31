@@ -496,6 +496,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
   void _submit() async {
     print(_correctWord);
 
+    // 1) Ensure exactly 3 letters are filled in the current row
     if (_currentTextfield % 3 != 0 || _fiveLettersStop != 3) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -522,6 +523,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
       return;
     }
 
+    // 2) Build the guessed word from the last 3 textfields
     List<String> currentWordList = [];
     String currentWord = "";
     String guessedLetter;
@@ -542,6 +544,7 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
 
     currentWord = currentWordList.join("");
 
+    // 3) If guessed word is not in dictionary, shake + snackbar
     if (!words.contains(currentWord)) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -568,7 +571,9 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
       return;
     }
 
+    // 4) If guess matches the correct word → WIN
     if (currentWord == _correctWord) {
+      // 4a) Color all three letters in this row green (onPrimary)
       for (int k = startIndex; k <= endIndex; k++) {
         guessedLetter = _controllers[k].text;
         _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
@@ -576,35 +581,43 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
         _colorTypes[k] = "onPrimary";
       }
 
+      // 4b) Stop the timer and mark game as won
       setState(() {
         gameWon = true;
         _gameTimer.stop();
       });
 
+      // 4c) Increment winStreak; if it just reached 3, award 50 diamonds
       if (winStreak < 3) {
         winStreak++;
         if (winStreak == 3) {
           await UserDataService().awardDiamonds(50);
         }
-      } else {
-        winStreak++;
       }
 
+      // 4d) If solved under 120 seconds and timeWinStreak == 0, award 30 diamonds
       if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
-        timeWinStreak++;
+        setState(() {
+          timeWinStreak++;
+        });
         await UserDataService().awardDiamonds(30);
       }
 
+      // 4e) Record the win in stats (won: true, guesses = _currentRow + 1)
       await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
 
+      // 4f) Show definition popup
       showDefinitionDialog(context, _correctWord);
+
+      // 4g) Advance “currentThreeModeLevel” in Firestore
       currentThreeModeLevel++;
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
-          .update({'currentlevel3': currentThreeModeLevel});
-      points = calculatePoints("Mode 3", _currentRow, _hintsUsed);
+          .update({'currentLevel3': currentThreeModeLevel});
 
+      // 4h) Award points based on row/hints, then update Firestore
+      points = calculatePoints("Mode 3", _currentRow, _hintsUsed);
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -616,9 +629,11 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
             'lastUpdated': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
     } else {
+      // 5) “Color‐hint” logic for an incorrect guess:
+
+      // 5a) First pass: correct letters in the correct position → green
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
-
         if (guessedLetter == deconstructedCorrectWord[j]) {
           _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
           keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
@@ -627,25 +642,23 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
         }
       }
 
+      // 5b) Second pass: letters in word but wrong spot → orange; else gray
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
-
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
-          if (letterCounts.containsKey(guessedLetter) &&
+          if (letterCounts[guessedLetter] != null &&
               letterCounts[guessedLetter]! > 0) {
             _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
             _colorTypes[i] = "onSecondary";
-            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
-
             if (keyColors[guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
               keyColors[guessedLetter] =
                   Theme.of(context).colorScheme.onSecondary;
             }
+            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
           } else {
             _fillColors[i] = Theme.of(context).colorScheme.onError;
             _colorTypes[i] = "onError";
-
             if (keyColors[guessedLetter] !=
                     Theme.of(context).colorScheme.onPrimary &&
                 keyColors[guessedLetter] !=
@@ -656,7 +669,23 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
         }
       }
 
+      // 6) If this was the last possible guess (3 letters × 7 rows = 21 textfields) → LOSS
       if (_currentTextfield == 21 && !gameWon) {
+        // 6a) Reset winStreak to zero
+        winStreak = 0;
+
+        // 6b) Record the loss (won: false → no distribution increment)
+        await UserDataService().recordGame(won: false);
+
+        // 6c) Save streaks so Firestore’s winStreak → 0 (daily/time/points unchanged)
+        await UserDataService().saveStreaks(
+          winStreak: winStreak,
+          dailyWinStreak: dailyWinStreak,
+          timeWinStreak: timeWinStreak,
+          points: points,
+        );
+
+        // 6d) Show “You lost” dialog
         showDialog(
           context: context,
           builder:
@@ -705,11 +734,13 @@ class _ThreeLetterScreen extends State<ThreeLetterScreen>
       }
     }
 
+    // 7) Advance to next row, mark the word as “gotten,” and save streaks/points
     currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
-
     await UserDataService().addGottenWord(_correctWord);
+
+    // 8) Final save of streaks/points (in case any bonus changed)
     await UserDataService().saveStreaks(
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,

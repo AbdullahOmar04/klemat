@@ -26,7 +26,7 @@ int points = 0;
 
 class GameStatsSnapshot {
   static int played = 0;
-  static int wins = 0;
+  static double wins = 0.0;
   static int currentStreak = 0;
   static int maxStreak = 0;
   static Map<int, int> distribution = {};
@@ -224,43 +224,77 @@ class UserDataService {
   }
 
   /// Record game stats
-  Future<void> recordGame({required bool won, required int guesses}) async {
+  Future<void> recordGame({
+    required bool won,
+    int? guesses, // make guesses optional
+  }) async {
     if (uid == null) return;
     final ref = _userRef.doc(uid);
+
+    // 1) Read existing stats
     final snap = await ref.get();
     final data = snap.data() as Map<String, dynamic>? ?? {};
 
     int played = (data['stats_played'] ?? 0) + 1;
-    int wins = data['stats_wins'] ?? 0;
+    int winsCount = data['stats_wins'] ?? 0;
     int currentStreak = data['stats_currentStreak'] ?? 0;
     int maxStreak = data['stats_maxStreak'] ?? 0;
 
     if (won) {
-      wins++;
+      winsCount++;
       currentStreak++;
-      if (currentStreak > maxStreak) maxStreak = currentStreak;
+      if (currentStreak > maxStreak) {
+        maxStreak = currentStreak;
+      }
     } else {
       currentStreak = 0;
     }
 
-    int dist = (data['stats_dist_$guesses'] ?? 0) + 1;
-
-    await ref.set({
+    // 2) Build the Firestore payload
+    final Map<String, Object> updates = {
       'stats_played': played,
-      'stats_wins': wins,
+      'stats_wins': winsCount,
       'stats_currentStreak': currentStreak,
       'stats_maxStreak': maxStreak,
-      'stats_dist_$guesses': dist,
-    }, SetOptions(merge: true));
+    };
+
+    // Only increment distribution if user actually won and provided a valid 'guesses'
+    if (won && guesses != null && guesses >= 1 && guesses <= 7) {
+      final int distCount = (data['stats_dist_$guesses'] ?? 0) + 1;
+      updates['stats_dist_$guesses'] = distCount;
+    }
+
+    // 3) Send merged update to Firestore
+    await ref.set(updates, SetOptions(merge: true));
+
+    // 4) Update in‐memory snapshot
+    GameStatsSnapshot.played = played;
+    GameStatsSnapshot.wins = (played > 0) ? (winsCount * 100.0 / played) : 0.0;
+    GameStatsSnapshot.currentStreak = currentStreak;
+    GameStatsSnapshot.maxStreak = maxStreak;
+
+    // Rebuild distribution map from Firestore data (only keys 1..7)
+    final Map<int, int> newDist = {};
+    for (int i = 1; i <= 7; i++) {
+      // If won and i == guesses, use distCount; otherwise use Firestore’s value (or 0).
+      if (won && guesses == i) {
+        newDist[i] = (data['stats_dist_$i'] ?? 0) + 1;
+      } else {
+        newDist[i] = data['stats_dist_$i'] ?? 0;
+      }
+    }
+    GameStatsSnapshot.distribution = newDist;
   }
 
   Future<Map<String, dynamic>> loadStats() async {
     if (uid == null) return {};
+
     final snap = await _userRef.doc(uid).get();
     final data = snap.data() as Map<String, dynamic>? ?? {};
 
     final dist = <int, int>{};
-    for (int i = 1; i <= 6; i++) {
+    for (int i = 1; i <= 7; i++) {
+      // ▶ changed upper bound to 7
       dist[i] = data['stats_dist_$i'] ?? 0;
     }
 
@@ -320,6 +354,7 @@ class UserDataService {
         'stats_dist_4': 0,
         'stats_dist_5': 0,
         'stats_dist_6': 0,
+        'stats_dist_7': 0,
         'username': username,
         'score': 0,
       });
@@ -359,6 +394,25 @@ class UserDataService {
 }
 
 Future<void> showStatsDialog(BuildContext context) async {
+  // 1) Load fresh stats from Firestore
+  final stats = await UserDataService().loadStats();
+  final int playedCount = stats['played'] as int? ?? 0;
+  final int rawWinsCount = stats['wins'] as int? ?? 0;
+  final int currentStreakFromFS = stats['currentStreak'] as int? ?? 0;
+  final int maxStreakFromFS = stats['maxStreak'] as int? ?? 0;
+  final Map<int, int> distMap = Map<int, int>.from(
+    stats['distribution'] as Map<int, dynamic>,
+  );
+
+  // 2) Overwrite in‐memory snapshot
+  GameStatsSnapshot.played = playedCount;
+  GameStatsSnapshot.wins =
+      (playedCount > 0) ? (rawWinsCount * 100.0 / playedCount) : 0.0;
+  GameStatsSnapshot.currentStreak = currentStreakFromFS;
+  GameStatsSnapshot.maxStreak = maxStreakFromFS;
+  GameStatsSnapshot.distribution = distMap;
+
+  // 3) Show the AlertDialog
   showDialog(
     context: context,
     builder:
@@ -381,7 +435,7 @@ Future<void> showStatsDialog(BuildContext context) async {
                     ),
                     _statTile(
                       '${GameStatsSnapshot.currentStreak}',
-                      'Current\n Streak',
+                      'Current\nStreak',
                     ),
                     _statTile(
                       '${GameStatsSnapshot.maxStreak}',
@@ -398,7 +452,8 @@ Future<void> showStatsDialog(BuildContext context) async {
                   ),
                 ),
                 const SizedBox(height: 8),
-                for (int i = 1; i <= 6; i++)
+                // ▶ Change 6 → 7 so that we render seven bars
+                for (int i = 1; i <= 7; i++)
                   _buildBarRow(
                     context,
                     i,
@@ -482,10 +537,8 @@ void showSettingsDialog(
 ) async {
   final prefs = await SharedPreferences.getInstance();
   bool isHapticEnabled = prefs.getBool('isHapticEnabled') ?? true;
-  // Set the default language index: 0 for English, 1 for Arabic.
   int selectedLangIndex =
       Localizations.localeOf(context).languageCode == 'ar' ? 1 : 0;
-  // Get the current theme mode.
   ThemeMode currentTheme = themeNotifier.themeMode;
 
   showDialog(
@@ -500,7 +553,6 @@ void showSettingsDialog(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Title
                   Text(
                     AppLocalizations.of(context).translate('settings'),
                     style: Theme.of(context).textTheme.displaySmall,
@@ -853,7 +905,6 @@ Widget smallButton(
     builder:
         (context, setState) => InkWell(
           onTap: () async {
-            // Restore scale and execute action after animation
             setState(() => scale = 1.0);
             await Future.delayed(const Duration(milliseconds: 100));
             onPressed();
@@ -909,18 +960,16 @@ Widget smallButton(
 class GameTimer {
   Timer? _timer;
   int elapsedSeconds = 0;
-  VoidCallback? onTick;
+  final VoidCallback? onTick;
 
   GameTimer({this.onTick});
 
-  void start() {
+  void start({bool reset = true}) {
     _timer?.cancel();
-    elapsedSeconds = 0;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    if (reset) elapsedSeconds = 0;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       elapsedSeconds++;
-      if (onTick != null) {
-        onTick!();
-      }
+      onTick?.call();
     });
   }
 
@@ -1230,63 +1279,62 @@ Widget _colorHintRow(Color color, String text) {
   );
 }
 
-int calculatePoints(String mode,int wonAtRow, int hintsUsed) {
-
+int calculatePoints(String mode, int wonAtRow, int hintsUsed) {
   if (mode == 'Mode 5') {
     switch (wonAtRow) {
-    case 0:
-      points += 10;
-    case 1:
-      points += 9;
-    case 2:
-      points += 8;
-    case 3:
-      points += 7;
-    case 4:
-      points += 6;
-    case 5:
-      points += 5;
-    case 6:
-      points += 4;
+      case 0:
+        points += 10;
+      case 1:
+        points += 9;
+      case 2:
+        points += 8;
+      case 3:
+        points += 7;
+      case 4:
+        points += 6;
+      case 5:
+        points += 5;
+      case 6:
+        points += 4;
+    }
   }
-  }
-  
-if (mode == 'Mode 4') {
+
+  if (mode == 'Mode 4') {
     switch (wonAtRow) {
-    case 0:
-      points += 8;
-    case 1:
-      points += 7;
-    case 2:
-      points += 6;
-    case 3:
-      points += 5;
-    case 4:
-      points += 4;
-    case 5:
-      points += 3;
-    case 6:
-      points += 2;
-  }
+      case 0:
+        points += 8;
+      case 1:
+        points += 7;
+      case 2:
+        points += 6;
+      case 3:
+        points += 5;
+      case 4:
+        points += 4;
+      case 5:
+        points += 3;
+      case 6:
+        points += 2;
+    }
   }
 
   if (mode == 'Mode 3') {
     switch (wonAtRow) {
-    case 0:
-      points += 6;
-    case 1:
-      points += 5;
-    case 2:
-      points += 4;
-    case 3:
-      points += 3;
-    case 4:
-      points += 2;
-    case 5:
-      points += 1;
-    case 6:
-      points += 1;
-  }
+      case 0:
+        points += 6;
+      case 1:
+        points += 5;
+      case 2:
+        points += 4;
+      case 3:
+        points += 3;
+      case 4:
+        points += 2;
+      case 5:
+        points += 1;
+      case 6:
+        points += 1;
+    }
   }
 
   for (int i = 0; i < hintsUsed; i++) {

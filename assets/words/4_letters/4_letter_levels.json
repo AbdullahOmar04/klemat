@@ -1,14 +1,36 @@
 {
   "levels": [
-    { "level": 1, "word": "مدرس" },
+    { "level": 1, "word": "كتاب" },
     { "level": 2, "word": "مطبخ" },
     { "level": 3, "word": "تفاح" },
     { "level": 4, "word": "موزة" },
     { "level": 5, "word": "دجاج" },
     { "level": 6, "word": "سماء" },
     { "level": 7, "word": "غيوم" },
-    { "level": 8, "word": "شايب" },
+    { "level": 8, "word": "حفرة" },
     { "level": 9, "word": "وردة" },
-    { "level": 10, "word": "لعبه" }
+    { "level": 10, "word": "لعبه" },
+
+    { "level": 11, "word": "كرسي" },
+    { "level": 12, "word": "قهوه" },
+    { "level": 13, "word": "هاتف" },
+    { "level": 14, "word": "قلمي" },
+    { "level": 15, "word": "علوم" },
+    { "level": 16, "word": "سمكه" },
+    { "level": 17, "word": "بحري" },
+    { "level": 18, "word": "بيتك" },
+    { "level": 19, "word": "نجوم" },
+    { "level": 20, "word": "شموس" },
+
+    { "level": 21, "word": "شكرا" },
+    { "level": 22, "word": "عقلك" },
+    { "level": 23, "word": "صحفي" },
+    { "level": 24, "word": "ربيع" },
+    { "level": 25, "word": "طبيب" },
+    { "level": 26, "word": "لغوي" },
+    { "level": 27, "word": "مبنى" },
+    { "level": 28, "word": "كلمة" },
+    { "level": 29, "word": "هندي" },
+    { "level": 30, "word": "نشاط" }
   ]
 }

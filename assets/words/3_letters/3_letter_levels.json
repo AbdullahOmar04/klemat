@@ -1,6 +1,6 @@
 {
   "levels": [
-    { "level": 1, "word": "باب" },
+    { "level": 1, "word": "كتب" },
     { "level": 2, "word": "بيت" },
     { "level": 3, "word": "نور" },
     { "level": 4, "word": "عين" },
@@ -9,6 +9,28 @@
     { "level": 7, "word": "يدك" },
     { "level": 8, "word": "لعب" },
     { "level": 9, "word": "لبن" },
-    { "level": 10, "word": "كوب" }
+    { "level": 10, "word": "كوب" },
+
+    { "level": 11, "word": "سيف" },
+    { "level": 12, "word": "جمل" },
+    { "level": 13, "word": "سمك" },
+    { "level": 14, "word": "روح" },
+    { "level": 15, "word": "ثوب" },
+    { "level": 16, "word": "قلب" },
+    { "level": 17, "word": "كلب" },
+    { "level": 18, "word": "نهر" },
+    { "level": 19, "word": "برد" },
+    { "level": 20, "word": "عرب" },
+
+    { "level": 21, "word": "صوت" },
+    { "level": 22, "word": "هات" },
+    { "level": 23, "word": "فرح" },
+    { "level": 24, "word": "ليل" },
+    { "level": 25, "word": "بحر" },
+    { "level": 26, "word": "مال" },
+    { "level": 27, "word": "علم" },
+    { "level": 28, "word": "سوق" },
+    { "level": 29, "word": "وطن" },
+    { "level": 30, "word": "باب" }
   ]
 }

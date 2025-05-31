@@ -17,7 +17,7 @@ class LeaderboardPage extends StatelessWidget {
         future:
             FirebaseFirestore.instance
                 .collection('users')
-                .orderBy('score', descending: true)
+                .orderBy('points', descending: true)
                 .limit(50)
                 .get(),
         builder: (context, snapshot) {

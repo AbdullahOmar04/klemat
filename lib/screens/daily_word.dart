@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:math' show sin, pi;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:klemat/helper.dart';
@@ -23,6 +24,7 @@ class DailyMode extends StatefulWidget {
 }
 
 class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
+  late final String _uid;
   late GameTimer _gameTimer;
   bool gameWon = false;
   int _currentTextfield = 0;
@@ -31,105 +33,71 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   int _currentRow = 0;
   int _diamonds = 0;
   final _userData = UserDataService();
-
   final List<TextEditingController> _controllers = List.generate(
     35,
     (index) => TextEditingController(),
   );
-
   List<Color> _fillColors = List.generate(35, (index) => Colors.transparent);
-
-  final List<String> _colorTypes = List.generate(35, (index) => "surface");
-
+  List<String> _colorTypes = List.generate(35, (index) => "surface");
   int _hintsUsed = 0;
-
   final List<String?> _hintLetters = List.filled(35, null);
   List<String> words = [];
   List<String> c_words = [];
   List<int> revealedIndices = [];
   final bool _readOnly = true;
   Map<String, Color> keyColors = {};
-
   final List<AnimationController> _shakeControllers = [];
   final List<Animation<double>> _shakeAnimations = [];
-
   final List<AnimationController> _scaleControllers = [];
   final List<Animation<double>> _scaleAnimations = [];
 
   @override
   void initState() {
     super.initState();
-    _initializeGame();
-    _loadUserData();
+    final user = FirebaseAuth.instance.currentUser;
+    _uid = user?.uid ?? 'guest';
 
-    // Initialize an AnimationController and Animation for each row
-    for (int i = 0; i < 7; i++) {
-      final controller = AnimationController(
-        duration: const Duration(milliseconds: 500),
-        vsync: this,
-      );
-
-      final animation = Tween<double>(
-        begin: 0,
-        end: 10,
-      ).animate(CurvedAnimation(parent: controller, curve: Curves.elasticIn));
-
-      _shakeControllers.add(controller);
-      _shakeAnimations.add(animation);
-    }
-
-    for (int i = 0; i < 35; i++) {
-      final controller = AnimationController(
-        duration: const Duration(milliseconds: 200),
-        vsync: this,
-      );
-
-      final animation = Tween<double>(begin: 1.0, end: 1.1).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeOut),
-      )..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          controller.reverse(); // Return to normal size after popping up
-        }
-      });
-
-      _scaleControllers.add(controller);
-      _scaleAnimations.add(animation);
-    }
     _gameTimer = GameTimer(
       onTick: () {
         if (!mounted) return;
         setState(() {});
       },
     );
-  }
 
-  void _shakeCurrentRow() {
-    _shakeControllers[_currentRow].forward(from: 0);
-  }
-
-  Future<void> _vibrateTwice() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool isHapticEnabled = prefs.getBool('isHapticEnabled') ?? true;
-
-    if (!isHapticEnabled) return; // Skip if haptic feedback is disabled
-
-    HapticFeedback.lightImpact();
-    await Future.delayed(const Duration(milliseconds: 100));
-    HapticFeedback.lightImpact();
-  }
-
-  void _triggerPopUp(int index) {
-    if (index >= 0 && index < _scaleControllers.length) {
-      _scaleControllers[index].forward();
+    // Set up animations
+    for (int i = 0; i < 7; i++) {
+      final controller = AnimationController(
+        duration: const Duration(milliseconds: 500),
+        vsync: this,
+      );
+      final animation = Tween<double>(
+        begin: 0,
+        end: 10,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.elasticIn));
+      _shakeControllers.add(controller);
+      _shakeAnimations.add(animation);
     }
+    for (int i = 0; i < 35; i++) {
+      final controller = AnimationController(
+        duration: const Duration(milliseconds: 200),
+        vsync: this,
+      );
+      final animation = Tween<double>(begin: 1.0, end: 1.1).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeOut),
+      )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          controller.reverse();
+        }
+      });
+      _scaleControllers.add(controller);
+      _scaleAnimations.add(animation);
+    }
+
+    _initializeGame();
+    _loadUserData();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _updateFillColors();
-    _updateKeyColors();
-  }
+  String _key(String base) => '${base}_$_uid';
 
   Future<void> _loadUserData() async {
     final amount = await _userData.loadDiamonds();
@@ -143,14 +111,11 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     final jsonString = await rootBundle.loadString(
       'assets/words/5_letters/5_letter_words_all.json',
     );
-
     final jsonString2 = await rootBundle.loadString(
       'assets/words/5_letters/5_letter_answers.json',
     );
-
     final data = json.decode(jsonString);
     final data2 = json.decode(jsonString2);
-
     if (!mounted) return;
     setState(() {
       words = List<String>.from(data['words']);
@@ -160,37 +125,51 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
   Future<void> _initializeGame() async {
     await _loadWordsFromJson();
-    await _initializeDailyWord();
-
+    final bool isNewDay = await _initializeDailyWord();
     if (gameWon) {
       _gameTimer.stop();
     } else {
-      _gameTimer.start();
+      _gameTimer.start(reset: isNewDay);
     }
     if (!mounted) return;
     setState(() {});
   }
 
-  Future<void> _initializeDailyWord() async {
+  Future<bool> _initializeDailyWord() async {
     final prefs = await SharedPreferences.getInstance();
-    String today = DateTime.now().toIso8601String().substring(0, 10);
+    final String today = DateTime.now().toIso8601String().substring(0, 10);
+    final String dateKey = _key('daily_word_date');
+    final String wordKey = _key('daily_word');
 
-    String? storedDate = prefs.getString('daily_word_date');
+    String? storedDate = prefs.getString(dateKey);
     if (storedDate == today) {
-      _dailyWord = prefs.getString('daily_word') ?? '';
-      await _loadGameState(); // Load saved game state if it exists
+      _dailyWord = prefs.getString(wordKey) ?? '';
+      await _loadGameState();
+      return false; // not a new day
     } else {
       _dailyWord = _generateDailyWord();
-      await prefs.setString('daily_word', _dailyWord);
-      await prefs.setString('daily_word_date', today);
-      await _resetGameState(); // Reset if a new daily word is generated
+      await prefs.setString(wordKey, _dailyWord);
+      await prefs.setString(dateKey, today);
+      await _resetGameState();
+
+      // Reset daily-only streaks
+      winStreak = 0;
+      timeWinStreak = 0;
+      await UserDataService().saveStreaks(
+        winStreak: winStreak,
+        dailyWinStreak: dailyWinStreak,
+        timeWinStreak: timeWinStreak,
+        points: points,
+      );
+      return true; // new day
     }
   }
 
   String _generateDailyWord() {
-    int seed = DateTime.now().millisecondsSinceEpoch ~/ (1000 * 60 * 60 * 24);
+    final int seed =
+        DateTime.now().millisecondsSinceEpoch ~/ (1000 * 60 * 60 * 24);
     final random = Random(seed);
-    int wordIndex = random.nextInt(c_words.length);
+    final int wordIndex = random.nextInt(c_words.length);
     return c_words[wordIndex];
   }
 
@@ -203,63 +182,78 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     for (var controller in _controllers) {
       controller.clear();
     }
+    // Initialize color types to "surface"
+    _colorTypes = List.generate(35, (index) => "surface");
+    _fillColors = List.generate(35, (index) => Colors.transparent);
+    for (int i = 0; i < 35; i++) {
+      _hintLetters[i] = null;
+    }
+    _hintsUsed = 0;
 
-    await prefs.setBool('game_won', false);
-    await prefs.setInt('current_row', 0);
-    await prefs.setInt('current_textfield', 0);
-    await prefs.setStringList('revealed_indices', []);
-    await prefs.setStringList('current_guesses', List.generate(35, (_) => ""));
+    await prefs.setBool(_key('game_won'), false);
+    await prefs.setInt(_key('current_row'), 0);
+    await prefs.setInt(_key('current_textfield'), 0);
+    await prefs.setStringList(_key('revealed_indices'), []);
+    await prefs.setStringList(
+      _key('current_guesses'),
+      List.generate(35, (_) => ""),
+    );
+    await prefs.setStringList(
+      _key('color_types'),
+      List.generate(35, (_) => "surface"),
+    );
+    await prefs.setInt(_key('game_timer'), 0);
   }
 
   Future<void> _loadGameState() async {
     final prefs = await SharedPreferences.getInstance();
-    gameWon = prefs.getBool('game_won') ?? false;
-    _currentRow = prefs.getInt('current_row') ?? 0;
-    _currentTextfield = prefs.getInt('current_textfield') ?? 0;
+    gameWon = prefs.getBool(_key('game_won')) ?? false;
+    _currentRow = prefs.getInt(_key('current_row')) ?? 0;
+    _currentTextfield = prefs.getInt(_key('current_textfield')) ?? 0;
 
-    // Load revealed indices and guesses
-    List<String>? savedRevealedIndices = prefs.getStringList(
-      'revealed_indices',
-    );
-    revealedIndices =
-        savedRevealedIndices?.map((e) => int.parse(e)).toList() ?? [];
-    List<String>? savedGuesses = prefs.getStringList('current_guesses');
+    // Load revealed indices
+    List<String>? savedRevealed = prefs.getStringList(_key('revealed_indices'));
+    revealedIndices = savedRevealed?.map((e) => int.parse(e)).toList() ?? [];
+
+    // Load guesses into controllers
+    List<String>? savedGuesses = prefs.getStringList(_key('current_guesses'));
     if (savedGuesses != null) {
       for (int i = 0; i < savedGuesses.length; i++) {
         _controllers[i].text = savedGuesses[i];
       }
     }
 
-    // Load color types and update _fillColors
-    List<String>? savedColorTypes = prefs.getStringList('color_types');
+    // Load color types and update fill/colors
+    List<String>? savedColorTypes = prefs.getStringList(_key('color_types'));
     if (savedColorTypes != null) {
-      for (int i = 0; i < savedColorTypes.length; i++) {
-        _colorTypes[i] = savedColorTypes[i];
-      }
-      _updateFillColors(); // Refresh colors based on the loaded types
+      _colorTypes = List<String>.from(savedColorTypes);
+      _updateFillColors();
+      _updateKeyColors();
     }
 
-    int savedElapsedSeconds = prefs.getInt('game_timer') ?? 0;
-    _gameTimer.elapsedSeconds = savedElapsedSeconds;
+    // Load timer
+    final int savedElapsed = prefs.getInt(_key('game_timer')) ?? 0;
+    _gameTimer.elapsedSeconds = savedElapsed;
+
     if (!mounted) return;
-    setState(() {}); // Update the UI with restored state
+    setState(() {});
   }
 
   Future<void> _saveGameProgress() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('game_won', gameWon);
-    await prefs.setInt('current_row', _currentRow);
-    await prefs.setInt('current_textfield', _currentTextfield);
+    await prefs.setBool(_key('game_won'), gameWon);
+    await prefs.setInt(_key('current_row'), _currentRow);
+    await prefs.setInt(_key('current_textfield'), _currentTextfield);
     await prefs.setStringList(
-      'revealed_indices',
+      _key('revealed_indices'),
       revealedIndices.map((e) => e.toString()).toList(),
     );
     await prefs.setStringList(
-      'current_guesses',
-      _controllers.map((e) => e.text).toList(),
+      _key('current_guesses'),
+      _controllers.map((c) => c.text).toList(),
     );
-    await prefs.setStringList('color_types', _colorTypes);
-    await prefs.setInt('game_timer', _gameTimer.elapsedSeconds);
+    await prefs.setStringList(_key('color_types'), _colorTypes);
+    await prefs.setInt(_key('game_timer'), _gameTimer.elapsedSeconds);
   }
 
   @override
@@ -278,6 +272,32 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _shakeCurrentRow() {
+    _shakeControllers[_currentRow].forward(from: 0);
+  }
+
+  Future<void> _vibrateTwice() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isHapticEnabled = prefs.getBool('isHapticEnabled') ?? true;
+    if (!isHapticEnabled) return;
+    HapticFeedback.lightImpact();
+    await Future.delayed(const Duration(milliseconds: 100));
+    HapticFeedback.lightImpact();
+  }
+
+  void _triggerPopUp(int index) {
+    if (index >= 0 && index < _scaleControllers.length) {
+      _scaleControllers[index].forward();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateFillColors();
+    _updateKeyColors();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,10 +306,10 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       appBar: AppBar(
         centerTitle: true,
         title: Container(
-          padding: EdgeInsets.all(5),
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             color: const Color.fromARGB(94, 131, 131, 131),
-            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
             border: Border.all(
               width: 1.5,
               color: Theme.of(context).colorScheme.surface,
@@ -298,9 +318,12 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.timer, size: 25),
+              const Icon(Icons.timer, size: 25),
               const SizedBox(width: 5),
-              Text(_gameTimer.formattedTime, style: TextStyle(fontSize: 15)),
+              Text(
+                _gameTimer.formattedTime,
+                style: const TextStyle(fontSize: 15),
+              ),
             ],
           ),
         ),
@@ -358,9 +381,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color:
-                                            Colors
-                                                .grey,
+                                        color: Colors.grey,
                                       ),
                                     ),
                                   TextField(
@@ -424,7 +445,6 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     );
   }
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   void _revealHint() async {
     if (_diamonds < 15) {
       _vibrateTwice();
@@ -452,28 +472,24 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       return;
     }
 
-    int startIndex = _currentRow * 5;
-    int endIndex = startIndex + 4;
-
-    Set<String> guessed =
+    final int startIndex = _currentRow * 5;
+    final int endIndex = startIndex + 4;
+    final Set<String> guessed =
         _controllers
             .map((c) => c.text.trim())
             .where((c) => c.isNotEmpty)
             .toSet();
-
-    List<int> availableIndices = [];
-
+    final List<int> availableIndices = [];
     for (int i = startIndex; i <= endIndex; i++) {
       final letter = _dailyWord[i % 5];
       if (!revealedIndices.contains(i) && !guessed.contains(letter)) {
         availableIndices.add(i);
       }
     }
-
     if (!gameWon && availableIndices.isNotEmpty) {
-      int randomIndex =
+      final int randomIndex =
           availableIndices[Random().nextInt(availableIndices.length)];
-      String letter = _dailyWord[randomIndex % 5];
+      final String letter = _dailyWord[randomIndex % 5];
       if (!mounted) return;
       setState(() {
         _hintLetters[randomIndex] = letter;
@@ -482,48 +498,40 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         _hintsUsed++;
         _diamonds -= 15;
       });
-
       unawaited(UserDataService().spendDiamonds(15));
     }
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   void _updateFillColors() {
-    final newFillColors = List<Color>.from(_fillColors); // Copy current list
+    final newFill = List<Color>.from(_fillColors);
     final colorScheme = Theme.of(context).colorScheme;
-
-    for (int i = 0; i < newFillColors.length; i++) {
+    for (int i = 0; i < newFill.length; i++) {
       switch (_colorTypes[i]) {
         case "onPrimary":
-          newFillColors[i] = colorScheme.onPrimary;
+          newFill[i] = colorScheme.onPrimary;
           break;
         case "onSecondary":
-          newFillColors[i] = colorScheme.onSecondary;
+          newFill[i] = colorScheme.onSecondary;
           break;
         case "onError":
-          newFillColors[i] = colorScheme.onError;
+          newFill[i] = colorScheme.onError;
           break;
         default:
-          newFillColors[i] = Colors.transparent;
+          newFill[i] = Colors.transparent;
       }
     }
     if (!mounted) return;
     setState(() {
-      _fillColors = newFillColors;
+      _fillColors = newFill;
     });
   }
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _updateKeyColors() {
     final newKeyColors = <String, Color>{};
     final colorScheme = Theme.of(context).colorScheme;
-
     for (int i = 0; i < _currentTextfield; i++) {
-      String letter = _controllers[i].text;
+      final String letter = _controllers[i].text;
       if (letter.isEmpty) continue;
-
       Color keyColor;
       switch (_colorTypes[i]) {
         case "onPrimary":
@@ -546,12 +554,9 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     });
   }
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   void _insertText(String myText) {
-    if ((_currentTextfield < 35 && _fiveLettersStop < 5) && gameWon == false) {
+    if (_currentTextfield < 35 && _fiveLettersStop < 5 && !gameWon) {
       final controller = _controllers[_currentTextfield];
-
       controller.text = myText;
       if (!mounted) return;
       setState(() {
@@ -562,26 +567,22 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     }
   }
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   void _backspace() {
-    if ((_currentTextfield > 0 && _fiveLettersStop > 0) && gameWon == false) {
+    if (_currentTextfield > 0 && _fiveLettersStop > 0 && !gameWon) {
       if (!mounted) return;
       setState(() {
         _currentTextfield--;
         _fiveLettersStop--;
       });
-
       _controllers[_currentTextfield].clear();
     }
   }
 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   void _submit() async {
+    // 1) Always save the current progress to SharedPreferences
     await _saveGameProgress();
-    print(_dailyWord);
 
+    // 2) Enforce that exactly 5 letters are filled for this row
     if (_currentTextfield % 5 != 0 || _fiveLettersStop != 5) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -608,24 +609,14 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       return;
     }
 
-    List<String> currentWordList = [];
-    String currentWord = "";
-    String guessedLetter;
-
-    int startIndex = _currentTextfield - 5;
-    int endIndex = _currentTextfield - 1;
-
-    List<String> deconstructedCorrectWord = _dailyWord.split('');
-    Map<String, int> letterCounts = {};
-    for (var letter in deconstructedCorrectWord) {
-      letterCounts[letter] = (letterCounts[letter] ?? 0) + 1;
-    }
-
-    for (int i = startIndex; i <= endIndex; i++) {
+    // 3) Reconstruct the guessed word from the last 5 text fields
+    final List<String> currentWordList = [];
+    for (int i = _currentTextfield - 5; i < _currentTextfield; i++) {
       currentWordList.add(_controllers[i].text);
     }
-    currentWord = currentWordList.join("");
+    final String currentWord = currentWordList.join("");
 
+    // 4) If the guessed word isn't in your valid-words list, reject it
     if (!words.contains(currentWord)) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -651,38 +642,53 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       return;
     }
 
+    // 5) Prepare indices and a letter‐count map for coloring hints
+    final int startIndex = _currentTextfield - 5;
+    final int endIndex = _currentTextfield - 1;
+    final List<String> deconstructedCorrect = _dailyWord.split('');
+    final Map<String, int> letterCounts = {};
+    for (var letter in deconstructedCorrect) {
+      letterCounts[letter] = (letterCounts[letter] ?? 0) + 1;
+    }
+
+    // 6) If the guess matches the daily word → WIN
     if (currentWord == _dailyWord) {
+      // 6a) Color all 5 letters in this row green
       for (int k = startIndex; k <= endIndex; k++) {
-        guessedLetter = _controllers[k].text;
+        final String guessedLetter = _controllers[k].text;
         _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
         keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
         _colorTypes[k] = "onPrimary";
       }
+
+      // 6b) Mark gameWon, stop the timer
       if (!mounted) return;
       setState(() {
         gameWon = true;
         _gameTimer.stop();
       });
 
-      if (winStreak < 3) {
-        winStreak++;
-      } else {
+      // 6c) Win‐3‐in‐a‐row logic
+      winStreak++;
+      if (winStreak == 3) {
         await UserDataService().awardDiamonds(50);
+        winStreak = 0; // reset after awarding
       }
 
+      // 6d) Solve under-2-minutes logic (only once per day)
       if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
         timeWinStreak++;
         await UserDataService().awardDiamonds(30);
       }
 
-      if (dailyWinStreak < 7) {
-        dailyWinStreak++;
-      } else {
+      // 6e) Seven‐day streak logic
+      dailyWinStreak++;
+      if (dailyWinStreak == 7) {
         await UserDataService().awardDiamonds(150);
-        dailyWinStreak = 0;
+        dailyWinStreak = 0; // reset after awarding
       }
 
-      // Save streaks and stats
+      // 6f) Persist streaks to Firestore (winStreak, dailyWinStreak, timeWinStreak, points)
       await UserDataService().saveStreaks(
         winStreak: winStreak,
         dailyWinStreak: dailyWinStreak,
@@ -690,11 +696,14 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         points: points,
       );
 
+      // 6g) Record the win (this will bump stats_dist_{row}, plus stats_played, stats_wins, etc.)
       await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
 
+      // 6h) Show the definition popup
       showDefinitionDialog(context, _dailyWord);
-      points = calculatePoints("Mode 5", _currentRow, _hintsUsed);
 
+      // 6i) Award points based on number of rows and hints
+      points = calculatePoints("Mode 5", _currentRow, _hintsUsed);
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -706,9 +715,12 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
             'lastUpdated': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
     } else {
+      // 7) Coloring logic for a non‐winning guess:
+
+      // 7a) First pass: correct letters in correct positions → green
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
-        guessedLetter = _controllers[i].text;
-        if (guessedLetter == deconstructedCorrectWord[j]) {
+        final String guessedLetter = _controllers[i].text;
+        if (guessedLetter == deconstructedCorrect[j]) {
           _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
           keyColors[guessedLetter] = Theme.of(context).colorScheme.onPrimary;
           _colorTypes[i] = "onPrimary";
@@ -716,20 +728,20 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         }
       }
 
+      // 7b) Second pass: correct letters in wrong positions → orange; else → gray
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
-        guessedLetter = _controllers[i].text;
+        final String guessedLetter = _controllers[i].text;
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
           if (letterCounts.containsKey(guessedLetter) &&
               letterCounts[guessedLetter]! > 0) {
             _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
             _colorTypes[i] = "onSecondary";
-            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
-
             if (keyColors[guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
               keyColors[guessedLetter] =
                   Theme.of(context).colorScheme.onSecondary;
             }
+            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
           } else {
             _fillColors[i] = Theme.of(context).colorScheme.onError;
             _colorTypes[i] = "onError";
@@ -743,14 +755,31 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         }
       }
 
+      // 8) If this was the final (7th) row and gameWon remains false → LOSS
       if (_currentTextfield == 35 && !gameWon) {
+        // 8a) Reset winStreak to zero
+        winStreak = 0;
+
+        // 8b) Record the loss (no guesses argument, so distribution is not bumped)
+        await UserDataService().recordGame(won: false);
+
+        // 8c) Persist streaks to Firestore (winStreak = 0, daily/time unchanged, points unchanged)
+        await UserDataService().saveStreaks(
+          winStreak: winStreak,
+          dailyWinStreak: dailyWinStreak,
+          timeWinStreak: timeWinStreak,
+          points: points,
+        );
+
+        // 8d) Show “Incorrect” dialog with the correct word underlined
         _incorrectWordDialog();
       }
     }
 
-    currentWordList.clear();
+    // 9) Advance to the next row, mark this word as “gotten,” and save streaks again
     _fiveLettersStop = 0;
     _currentRow++;
+    await UserDataService().addGottenWord(_dailyWord);
 
     await UserDataService().saveStreaks(
       winStreak: winStreak,
@@ -759,8 +788,6 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       points: points,
     );
   }
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   void _incorrectWordDialog() {
     showDialog(
@@ -777,9 +804,8 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
               text: TextSpan(
                 children: [
                   TextSpan(
-                    text: AppLocalizations.of(
-                      context,
-                    ).translate('correct_word'),
+                    text:
+                        '${AppLocalizations.of(context).translate('correct_word')} ',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 16,

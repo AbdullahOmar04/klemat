@@ -1,5 +1,5 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:klemat/custom_level_map/bg_image.dart';
 import 'package:klemat/custom_level_map/image_details.dart';
 import 'package:klemat/custom_level_map/images_tp_paint.dart';
 import 'package:klemat/custom_level_map/level_map_paramas.dart';
@@ -10,25 +10,21 @@ class LevelMapPainter extends CustomPainter {
   final ImagesToPaint? imagesToPaint;
   final Paint _pathPaint;
   final Paint _shadowPaint;
-
-  /// Describes the fraction to reach next level.
-  /// If the [LevelMapParams.currentLevel] is 6.5, [_nextLevelFraction] is 0.5.
   final int _nextLevelFraction;
 
-  LevelMapPainter({required this.params, this.imagesToPaint})
-    : _pathPaint =
-          Paint()
-            ..strokeWidth = params.pathStrokeWidth
-            ..color = params.pathColor
-            ..strokeCap = StrokeCap.round,
-      _shadowPaint =
-          Paint()
-            ..strokeWidth = params.pathStrokeWidth
-            ..color = params.pathColor.withOpacity(0.2)
-            ..strokeCap = StrokeCap.round,
-      _nextLevelFraction = params.currentLevel.remainder(
-        params.currentLevel.floor(),
-      );
+  LevelMapPainter({
+    required this.params,
+    this.imagesToPaint,
+  })  : _pathPaint = Paint()
+          ..strokeWidth = params.pathStrokeWidth
+          ..color = params.pathColor
+          ..strokeCap = StrokeCap.round,
+        _shadowPaint = Paint()
+          ..strokeWidth = params.pathStrokeWidth
+          ..color = params.pathColor.withOpacity(0.2)
+          ..strokeCap = StrokeCap.round,
+        _nextLevelFraction =
+            params.currentLevel - params.currentLevel.floor();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -41,34 +37,29 @@ class LevelMapPainter extends CustomPainter {
       _drawPathEndImage(canvas, size.width, size.height);
     }
 
-    final double _centerWidth = size.width / 2;
-    final initialOffset =
-        params.firstCurveReferencePointOffsetFactor ?? const Offset(0.5, 0.5);
-    double _p2_dx_VariationFactor = initialOffset.dx;
-    double _p2_dy_VariationFactor = initialOffset.dy;
+    final centerX = size.width / 2;
+    final initOff = params.firstCurveReferencePointOffsetFactor
+        ?? const Offset(0.5, 0.5);
+    double dxVar = initOff.dx;
+    double dyVar = initOff.dy;
 
-    for (int thisLevel = 0; thisLevel < params.levelCount; thisLevel++) {
-      final Offset p1 = Offset(_centerWidth, -(thisLevel * params.levelHeight));
-      final Offset p2 = getP2OffsetBasedOnCurveSide(
-        thisLevel,
-        _p2_dx_VariationFactor,
-        _p2_dy_VariationFactor,
-        _centerWidth,
+    for (int idx = 0; idx < params.levelCount; idx++) {
+      final p1 = Offset(centerX, -idx * params.levelHeight);
+      final p2 = getP2OffsetBasedOnCurveSide(
+        idx, dxVar, dyVar, centerX,
       );
-      final Offset p3 = Offset(
-        _centerWidth,
-        -((thisLevel * params.levelHeight) + params.levelHeight),
+      final p3 = Offset(
+        centerX,
+        -((idx * params.levelHeight) + params.levelHeight),
       );
 
-      _drawBezierCurve(canvas, p1, p2, p3, thisLevel + 1);
+      _drawBezierCurve(canvas, p1, p2, p3, idx + 1);
 
       if (params.enableVariationBetweenCurves) {
-        _p2_dx_VariationFactor =
-            _p2_dx_VariationFactor +
-            params.curveReferenceOffsetVariationForEachLevel[thisLevel].dx;
-        _p2_dy_VariationFactor =
-            _p2_dy_VariationFactor +
-            params.curveReferenceOffsetVariationForEachLevel[thisLevel].dy;
+        dxVar +=
+            params.curveReferenceOffsetVariationForEachLevel[idx].dx;
+        dyVar +=
+            params.curveReferenceOffsetVariationForEachLevel[idx].dy;
       }
     }
 
@@ -76,65 +67,62 @@ class LevelMapPainter extends CustomPainter {
   }
 
   void _drawBGImages(Canvas canvas) {
-    final List<BGImage>? _bgImages = imagesToPaint!.bgImages;
-    if (_bgImages != null) {
-      _bgImages.forEach((bgImage) {
-        bgImage.offsetsToBePainted.forEach((offset) {
-          _paintImage(canvas, bgImage.imageDetails, offset);
-        });
-      });
+    final bg = imagesToPaint!.bgImages;
+    if (bg != null) {
+      for (var b in bg) {
+        for (var off in b.offsetsToBePainted) {
+          _paintImage(canvas, b.imageDetails, off);
+        }
+      }
     }
   }
 
-  void _drawStartLevelImage(Canvas canvas, double canvasWidth) {
-    if (imagesToPaint!.startLevelImage != null) {
-      final ImageDetails _startLevelImage = imagesToPaint!.startLevelImage!;
-      final Offset _offset = Offset(
-        canvasWidth / 2,
-        0,
-      ).toBottomCenter(_startLevelImage.size);
-      _paintImage(canvas, _startLevelImage, _offset);
+  void _drawStartLevelImage(Canvas canvas, double w) {
+    final img = imagesToPaint!.startLevelImage;
+    if (img != null) {
+      _paintImage(
+        canvas,
+        img,
+        Offset(w / 2, 0).toBottomCenter(img.size),
+      );
     }
   }
 
   void _drawPathEndImage(
-    Canvas canvas,
-    double canvasWidth,
-    double canvasHeight,
-  ) {
-    if (imagesToPaint!.pathEndImage != null) {
-      final ImageDetails _pathEndImage = imagesToPaint!.pathEndImage!;
-      final Offset _offset = Offset(
-        canvasWidth / 2,
-        -canvasHeight,
-      ).toTopCenter(_pathEndImage.size.width);
-      _paintImage(canvas, _pathEndImage, _offset);
+      Canvas canvas, double w, double h) {
+    final img = imagesToPaint!.pathEndImage;
+    if (img != null) {
+      _paintImage(
+        canvas,
+        img,
+        Offset(w / 2, -h).toTopCenter(img.size.width),
+      );
     }
   }
 
   Offset getP2OffsetBasedOnCurveSide(
     int thisLevel,
-    double p2_dx_VariationFactor,
-    double p2_dy_VariationFactor,
-    double centerWidth,
+    double dxVar,
+    double dyVar,
+    double centerW,
   ) {
-    final double clamped_dxFactor = p2_dx_VariationFactor.clamp(
+    final dxClamped = dxVar.clamp(
       params.minReferencePositionOffsetFactor.dx,
       params.maxReferencePositionOffsetFactor.dx,
     );
-    final double clamped_dyFactor = p2_dy_VariationFactor.clamp(
+    final dyClamped = dyVar.clamp(
       params.minReferencePositionOffsetFactor.dy,
       params.maxReferencePositionOffsetFactor.dy,
     );
-    final double p2_dx =
-        thisLevel.isEven
-            ? centerWidth * (1 - clamped_dxFactor)
-            : centerWidth + (centerWidth * clamped_dxFactor);
-    final double p2_dy =
-        -((thisLevel * params.levelHeight) +
-            (params.levelHeight *
-                (thisLevel.isEven ? clamped_dyFactor : 1 - clamped_dyFactor)));
-    return Offset(p2_dx, p2_dy);
+
+    final dx = thisLevel.isEven
+        ? centerW * (1 - dxClamped)
+        : centerW + (centerW * dxClamped);
+    final dy = -((thisLevel * params.levelHeight) +
+        (params.levelHeight *
+            (thisLevel.isEven ? dyClamped : 1 - dyClamped)));
+
+    return Offset(dx, dy);
   }
 
   void _drawBezierCurve(
@@ -144,71 +132,111 @@ class LevelMapPainter extends CustomPainter {
     Offset p3,
     int thisLevel,
   ) {
-    final double _dashFactor = params.dashLengthFactor;
-    for (double t = _dashFactor; t <= 1; t += _dashFactor * 2) {
-      Offset offset1 = Offset(
+    // dashed path
+    final dash = params.dashLengthFactor;
+    for (double t = dash; t <= 1; t += dash * 2) {
+      final o1 = Offset(
         _compute(t, p1.dx, p2.dx, p3.dx),
         _compute(t, p1.dy, p2.dy, p3.dy),
       );
-      Offset offset2 = Offset(
-        _compute(t + _dashFactor, p1.dx, p2.dx, p3.dx),
-        _compute(t + _dashFactor, p1.dy, p2.dy, p3.dy),
+      final o2 = Offset(
+        _compute(t + dash, p1.dx, p2.dx, p3.dx),
+        _compute(t + dash, p1.dy, p2.dy, p3.dy),
       );
-      canvas.drawLine(offset1, offset2, _pathPaint);
+      canvas.drawLine(o1, o2, _pathPaint);
       if (params.showPathShadow) {
         canvas.drawLine(
-          Offset(
-            offset1.dx + params.shadowDistanceFromPathOffset.dx,
-            offset1.dy + params.shadowDistanceFromPathOffset.dy,
+          o1.translate(
+            params.shadowDistanceFromPathOffset.dx,
+            params.shadowDistanceFromPathOffset.dy,
           ),
-          Offset(
-            offset2.dx + params.shadowDistanceFromPathOffset.dx,
-            offset2.dy + params.shadowDistanceFromPathOffset.dy,
+          o2.translate(
+            params.shadowDistanceFromPathOffset.dx,
+            params.shadowDistanceFromPathOffset.dy,
           ),
           _shadowPaint,
         );
       }
     }
-    if (imagesToPaint != null) {
-      final Offset _offsetToPaintImage = Offset(
-        _compute(0.5, p1.dx, p2.dx, p3.dx),
-        _compute(0.5, p1.dy, p2.dy, p3.dy),
+
+    if (imagesToPaint == null) return;
+
+    // midpoint of this segment
+    final mid = Offset(
+      _compute(0.5, p1.dx, p2.dx, p3.dx),
+      _compute(0.5, p1.dy, p2.dy, p3.dy),
+    );
+
+    // pick base icon
+    final baseImg = params.currentLevel >= thisLevel
+        ? imagesToPaint!.completedLevelImage
+        : imagesToPaint!.lockedLevelImage;
+
+    // draw the node
+    _paintImage(canvas, baseImg, mid.toBottomCenter(baseImg.size));
+
+    // maybe draw the “current” icon
+    final fl = params.currentLevel.floor();
+    if ((fl == thisLevel && _nextLevelFraction <= 0.5) ||
+        (fl == thisLevel - 1 && _nextLevelFraction > 0.5)) {
+      final frac = fl == thisLevel
+          ? 0.5 + _nextLevelFraction
+          : _nextLevelFraction - 0.5;
+      final pos = Offset(
+        _compute(frac, p1.dx, p2.dx, p3.dx),
+        _compute(frac, p1.dy, p2.dy, p3.dy),
       );
-      ImageDetails imageDetails;
-      if (params.currentLevel >= thisLevel) {
-        imageDetails = imagesToPaint!.completedLevelImage;
-      } else {
-        imageDetails = imagesToPaint!.lockedLevelImage;
-      }
-      _paintImage(
-        canvas,
-        imageDetails,
-        _offsetToPaintImage.toBottomCenter(imageDetails.size),
-      );
-      final double _curveFraction;
-      final int _flooredCurrentLevel = params.currentLevel.floor();
-      if (_flooredCurrentLevel == thisLevel && _nextLevelFraction <= 0.5) {
-        _curveFraction = 0.5 + _nextLevelFraction;
-        // _paintImage(canvas, imagesToPaint!.currentLevelImage, _offsetToPaintImage.toCenter(imageDetails.size));
-      } else if (_flooredCurrentLevel == thisLevel - 1 &&
-          _nextLevelFraction > 0.5) {
-        _curveFraction = _nextLevelFraction - 0.5;
-      } else {
-        return;
-      }
-      final Offset _offsetToPaintCurrentLevelImage = Offset(
-        _compute(_curveFraction, p1.dx, p2.dx, p3.dx),
-        _compute(_curveFraction, p1.dy, p2.dy, p3.dy),
-      );
-      _paintImage(
-        canvas,
-        imagesToPaint!.currentLevelImage,
-        _offsetToPaintCurrentLevelImage.toBottomCenter(imageDetails.size),
-      );
+      final cur = imagesToPaint!.currentLevelImage;
+      _paintImage(canvas, cur, pos.toBottomCenter(cur.size));
     }
+
+    // ── Improved level number styling ──
+    final levelText = '$thisLevel';
+    final tp = TextPainter(
+      text: TextSpan(
+        text: levelText,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    // circle diameter (slightly larger than text)
+    final dia = max(tp.width, tp.height) + 8;
+    // circle center sits just right of the node icon
+    final cx = mid.dx + baseImg.size.width / 2 + dia / 2 + 4;
+    final cy = mid.dy;
+
+    // filled circle
+    canvas.drawCircle(
+      Offset(cx, cy),
+      dia / 2,
+      Paint()..color = params.pathColor.withOpacity(0.9),
+    );
+    // border
+    canvas.drawCircle(
+      Offset(cx, cy),
+      dia / 2,
+      Paint()
+        ..color = params.pathColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    // text centered in the circle
+    tp.paint(
+      canvas,
+      Offset(cx - tp.width / 2, cy - tp.height / 2),
+    );
   }
 
-  void _paintImage(Canvas canvas, ImageDetails imageDetails, Offset offset) {
+  void _paintImage(
+    Canvas canvas,
+    ImageDetails imageDetails,
+    Offset offset,
+  ) {
     paintImage(
       canvas: canvas,
       rect: Rect.fromLTWH(
@@ -222,11 +250,13 @@ class LevelMapPainter extends CustomPainter {
   }
 
   double _compute(double t, double p1, double p2, double p3) {
-    ///To learn about these parameters, visit https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-    return (((1 - t) * (1 - t) * p1) + (2 * (1 - t) * t * p2) + (t * t) * p3);
+    return (1 - t) * (1 - t) * p1 +
+        2 * (1 - t) * t * p2 +
+        t * t * p3;
   }
 
   @override
-  bool shouldRepaint(covariant LevelMapPainter oldDelegate) =>
-      oldDelegate.imagesToPaint != imagesToPaint;
+  bool shouldRepaint(covariant LevelMapPainter old) =>
+      old.imagesToPaint != imagesToPaint ||
+      old.params.currentLevel != params.currentLevel;
 }

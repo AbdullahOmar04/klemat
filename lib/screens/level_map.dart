@@ -66,7 +66,7 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
     return match['word'];
   }
 
-  void _openLevel() async {
+  void openLevel() async {
     final word = await getWordForLevel(widget.whichMode, widget.currentLevel);
     if (word == null) return;
 
@@ -94,7 +94,7 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
           elevation: 0,
         ),
         extendBodyBehindAppBar: true,
-        body: LevelMap(
+      body: LevelMap(
           scrollToCurrentLevel: true,
           backgroundColor:
               mode == "Mode 5"
@@ -103,7 +103,7 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
                   ? const Color.fromARGB(255, 255, 201, 120)
                   : const Color.fromARGB(255, 219, 142, 255),
           levelMapParams: LevelMapParams(
-            levelCount: 10,
+            levelCount: 30,
             currentLevel: widget.currentLevel,
             pathColor:
                 mode == "Mode 5"
@@ -114,7 +114,7 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
             currentLevelImage: ImageParams(
               path: "assets/images/green_flag.png",
               size: const Size(40, 47),
-              onPressed: _openLevel,
+              onPressed: openLevel,
             ),
             lockedLevelImage: ImageParams(
               path: "assets/images/locked_flag.png",

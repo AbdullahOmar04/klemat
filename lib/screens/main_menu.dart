@@ -9,6 +9,9 @@ import 'package:klemat/themes/app_localization.dart';
 import 'package:klemat/themes/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// … (other imports remain the same) …
 
 class MainMenu extends StatefulWidget {
   final String username;
@@ -27,6 +30,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
   @override
   void initState() {
     super.initState();
+    _checkDailyLoginReward();
     _loadUserData();
   }
 
@@ -38,6 +42,7 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
 
   @override
   void didPopNext() {
+    // Called when returning to this screen (e.g. after pushing another route)
     _loadUserData();
   }
 
@@ -53,36 +58,81 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     final stats = await userData.loadStats();
     final levels = await userData.loadCurrentLevels();
 
+    // Extract Firestore stats safely, converting "wins" into a percentage (double).
+    final int playedCount = (stats['played'] as int?) ?? 0;
+    final int rawWinsCount = (stats['wins'] as int?) ?? 0;
+    final int currentStreakFromFS = (stats['currentStreak'] as int?) ?? 0;
+    final int maxStreakFromFS = (stats['maxStreak'] as int?) ?? 0;
+
+    // Compute win percentage as a double (0.0 .. 100.0)
+    final double winPercentage =
+        (playedCount > 0) ? (rawWinsCount * 100.0 / playedCount) : 0.0;
+
+    // Distribution comes back as Map<int,int>
+    final Map<dynamic, dynamic> rawDist =
+        (stats['distribution'] ?? <int, int>{}) as Map<dynamic, dynamic>;
+    // Convert dynamic map to Map<int,int> explicitly
+    final Map<int, int> distMap = rawDist.map<int, int>(
+      (key, value) => MapEntry(key as int, value as int),
+    );
+
     setState(() {
       diamonds = amount;
+
+      // Streaks (from loadStreaks())
       winStreak = streaks['winStreak'] ?? 0;
       dailyWinStreak = streaks['dailyWinStreak'] ?? 0;
       timeWinStreak = streaks['timeWinStreak'] ?? 0;
+
+      // Levels
       currentFiveModeLevel = levels['five']!;
       currentFourModeLevel = levels['four']!;
       currentThreeModeLevel = levels['three']!;
 
-      GameStatsSnapshot.played = stats['played'] ?? 0;
-      GameStatsSnapshot.wins = stats['wins'] ?? 0;
-      GameStatsSnapshot.currentStreak = stats['currentStreak'] ?? 0;
-      GameStatsSnapshot.maxStreak = stats['maxStreak'] ?? 0;
-      GameStatsSnapshot.distribution = Map<int, int>.from(
-        stats['distribution'] ?? {},
-      );
+      // GameStatsSnapshot must match the new types:
+      GameStatsSnapshot.played = playedCount;
+      GameStatsSnapshot.wins = winPercentage; // <-- now a double
+      GameStatsSnapshot.currentStreak = currentStreakFromFS;
+      GameStatsSnapshot.maxStreak = maxStreakFromFS;
+      GameStatsSnapshot.distribution = distMap;
     });
   }
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => LoginPage()),
+      MaterialPageRoute(builder: (context) => const LoginPage()),
       (route) => false,
     );
+  }
+
+  Future<void> _checkDailyLoginReward() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final lastLogin = prefs.getString('last_login_date');
+
+    if (lastLogin != today) {
+      await prefs.setString('last_login_date', today);
+      await UserDataService().awardDiamonds(20);
+      final newAmount = await UserDataService().loadDiamonds();
+      if (!mounted) return;
+      setState(() {
+        diamonds = newAmount;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🎉 You received 20 daily login diamonds!'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
+
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -154,19 +204,19 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                 children: [
                   Text(
                     widget.username,
-                    style: TextStyle(color: Colors.white, fontSize: 18),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
                   ),
                   const SizedBox(height: 8),
                 ],
               ),
             ),
             ListTile(
-              leading: Icon(Icons.bar_chart),
+              leading: const Icon(Icons.bar_chart),
               title: Text(AppLocalizations.of(context).translate('stats')),
               onTap: () => showStatsDialog(context),
             ),
             ListTile(
-              leading: Icon(Icons.book),
+              leading: const Icon(Icons.book),
               title: Text(AppLocalizations.of(context).translate('library')),
               onTap:
                   () => Navigator.push(
@@ -175,15 +225,15 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                   ),
             ),
             ListTile(
-              leading: Icon(Icons.question_mark),
+              leading: const Icon(Icons.question_mark),
               title: Text(
                 AppLocalizations.of(context).translate('how_to_play'),
               ),
               onTap: () => showHowToPlayDialog(context),
             ),
-            Divider(),
+            const Divider(),
             ListTile(
-              leading: Icon(Icons.logout),
+              leading: const Icon(Icons.logout),
               title: Text(AppLocalizations.of(context).translate('log_out')),
               onTap: () async => await _logout(context),
             ),

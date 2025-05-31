@@ -495,6 +495,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
   void _submit() async {
     print(_correctWord);
 
+    // 1) Ensure exactly 4 letters are filled in the current row
     if (_currentTextfield % 4 != 0 || _fiveLettersStop != 4) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -521,6 +522,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
       return;
     }
 
+    // 2) Build the guessed word from the last 4 text fields
     List<String> currentWordList = [];
     String currentWord = "";
     String guessedLetter;
@@ -541,6 +543,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
     currentWord = currentWordList.join("");
 
+    // 3) If guessed word is not in dictionary, shake + show “not in library”
     if (!words.contains(currentWord)) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -567,6 +570,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
       return;
     }
 
+    // 4) If guessed word matches the correct word → WIN
     if (currentWord == _correctWord) {
       for (int k = startIndex; k <= endIndex; k++) {
         guessedLetter = _controllers[k].text;
@@ -580,29 +584,37 @@ class _FourLetterScreen extends State<FourLetterScreen>
         _gameTimer.stop();
       });
 
-      winStreak++;
-
-      if (winStreak >= 3) {
-        await UserDataService().awardDiamonds(50);
-        winStreak = 0; // Reset after awarding
+      // 4a) Increment winStreak. If it just reached 3, award 50 diamonds
+      if (winStreak < 3) {
+        winStreak++;
+        if (winStreak == 3) {
+          await UserDataService().awardDiamonds(50);
+        }
       }
 
+      // 4b) If solved under 120 seconds and timeWinStreak == 0, award 30 diamonds
       if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
-        timeWinStreak++;
+        setState(() {
+          timeWinStreak++;
+        });
         await UserDataService().awardDiamonds(30);
       }
 
+      // 4c) Record the win in stats (won: true, guesses = row index + 1)
       await UserDataService().recordGame(won: true, guesses: _currentRow + 1);
 
+      // 4d) Show the definition dialog
       showDefinitionDialog(context, _correctWord);
+
+      // 4e) Advance “currentFourModeLevel” in Firestore
       currentFourModeLevel++;
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
-          .update({'currentlevel4': currentFourModeLevel});
+          .update({'currentLevel4': currentFourModeLevel});
 
+      // 4f) Award “points” based on row/hints, update Firestore
       points = calculatePoints("Mode 4", _currentRow, _hintsUsed);
-
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -614,6 +626,9 @@ class _FourLetterScreen extends State<FourLetterScreen>
             'lastUpdated': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
     } else {
+      // 5) Mark letter‐hints for an incorrect guess:
+
+      // 5a) First pass: letters in the correct position → green
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
         if (guessedLetter == deconstructedCorrectWord[j]) {
@@ -624,24 +639,23 @@ class _FourLetterScreen extends State<FourLetterScreen>
         }
       }
 
+      // 5b) Second pass: letters in word but wrong position → orange; else gray
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         guessedLetter = _controllers[i].text;
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
-          if (letterCounts.containsKey(guessedLetter) &&
+          if (letterCounts[guessedLetter] != null &&
               letterCounts[guessedLetter]! > 0) {
             _fillColors[i] = Theme.of(context).colorScheme.onSecondary;
             _colorTypes[i] = "onSecondary";
-            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
-
             if (keyColors[guessedLetter] !=
                 Theme.of(context).colorScheme.onPrimary) {
               keyColors[guessedLetter] =
                   Theme.of(context).colorScheme.onSecondary;
             }
+            letterCounts[guessedLetter] = letterCounts[guessedLetter]! - 1;
           } else {
             _fillColors[i] = Theme.of(context).colorScheme.onError;
             _colorTypes[i] = "onError";
-
             if (keyColors[guessedLetter] !=
                     Theme.of(context).colorScheme.onPrimary &&
                 keyColors[guessedLetter] !=
@@ -652,7 +666,23 @@ class _FourLetterScreen extends State<FourLetterScreen>
         }
       }
 
+      // 6) If this was the last row (7th row in 4-letter mode = 28 textfields) → LOSS
       if (_currentTextfield == 28 && gameWon == false) {
+        // 6a) Reset winStreak to zero
+        winStreak = 0;
+
+        // 6b) Record the loss: pass won: false (no guesses argument)
+        await UserDataService().recordGame(won: false);
+
+        // 6c) Save streaks (so Firestore knows winStreak=0, daily/time unchanged)
+        await UserDataService().saveStreaks(
+          winStreak: winStreak,
+          dailyWinStreak: dailyWinStreak,
+          timeWinStreak: timeWinStreak,
+          points: points,
+        );
+
+        // 6d) Show “You lost” dialog with correct word
         showDialog(
           context: context,
           builder:
@@ -698,14 +728,16 @@ class _FourLetterScreen extends State<FourLetterScreen>
                 ),
               ),
         );
-        winStreak = 0;
       }
     }
 
+    // 7) Move on to the next row, mark this word as “gotten,” then save streaks/points
     currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
     await UserDataService().addGottenWord(_correctWord);
+
+    // 8) Finally, save streaks/points again (covers any trailing updates)
     await UserDataService().saveStreaks(
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,

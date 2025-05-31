@@ -1,14 +1,36 @@
 {
   "levels": [
-    { "level": 1, "word": "مدرسة" },
+    { "level": 1, "word": "كلمات" },
     { "level": 2, "word": "تفاحة" },
     { "level": 3, "word": "حديقة" },
     { "level": 4, "word": "نافذة" },
     { "level": 5, "word": "مطبخي" },
     { "level": 6, "word": "سيارة" },
-    { "level": 7, "word": "موزات" },
-    { "level": 8, "word": "صديقك" },
-    { "level": 9, "word": "كراسة" },
-    { "level": 10, "word": "نجومي" }
+    { "level": 7, "word": "مدرسة" }, 
+    { "level": 8, "word": "مكتبة" },
+    { "level": 9, "word": "شمسية" },
+    { "level": 10, "word": "إجازة" },
+
+    { "level": 11, "word": "كتابي" },
+    { "level": 12, "word": "ملاعب" },
+    { "level": 13, "word": "مصباح" },
+    { "level": 14, "word": "دجاجة" },
+    { "level": 15, "word": "هامور" },
+    { "level": 16, "word": "هواتف" },
+    { "level": 17, "word": "حاسوب" },
+    { "level": 18, "word": "صديقك" },
+    { "level": 19, "word": "مواطن" },
+    { "level": 20, "word": "تصوير " },
+
+    { "level": 21, "word": "سجادة" },
+    { "level": 22, "word": "زبائن" },
+    { "level": 23, "word": "إجازة" },
+    { "level": 24, "word": "قتلني" },
+    { "level": 25, "word": "معلمي" },
+    { "level": 26, "word": "طلابي" },
+    { "level": 27, "word": "مدرسي" },
+    { "level": 28, "word": "مدينة" },
+    { "level": 29, "word": "حديقة" },
+    { "level": 30, "word": "دكتور" }
   ]
 }
