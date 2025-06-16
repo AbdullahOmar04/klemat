@@ -11,7 +11,7 @@ class LeaderboardPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(AppLocalizations.of(context).translate('leaderboard')),
         centerTitle: true,
-        backgroundColor: Colors.teal,
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
       body: FutureBuilder<QuerySnapshot>(
         future:
@@ -44,13 +44,13 @@ class LeaderboardPage extends StatelessWidget {
 
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.teal,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   child: Text('${index + 1}'),
                 ),
                 title: Text(name),
                 trailing: Text(
-                  '$points pts',
+                  '$points ${AppLocalizations.of(context).translate('pts')}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               );

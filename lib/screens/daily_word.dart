@@ -12,7 +12,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:confetti/confetti.dart';
 
 class DailyMode extends StatefulWidget {
   const DailyMode({super.key});
@@ -50,6 +50,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
   final List<Animation<double>> _shakeAnimations = [];
   final List<AnimationController> _scaleControllers = [];
   final List<Animation<double>> _scaleAnimations = [];
+  late final ConfettiController _confettiController;
 
   @override
   void initState() {
@@ -95,6 +96,9 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
     _initializeGame();
     _loadUserData();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 1),
+    );
   }
 
   String _key(String base) => '${base}_$_uid';
@@ -269,6 +273,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
     }
     _saveGameProgress();
     _gameTimer.stop();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -433,6 +438,17 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
                 );
               },
             ),
+          ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality:
+                BlastDirectionality.explosive, // shoots in all directions
+            shouldLoop: false, // just one burst
+            emissionFrequency: 0.05, // how many particles per frame
+            numberOfParticles: 20, // total particles per blast
+            maxBlastForce: 20, // how far they go
+            minBlastForce: 5,
+            gravity: 0.2, // gravity pull
+          ),
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
@@ -653,7 +669,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
 
     // 6) If the guess matches the daily word → WIN
     if (currentWord == _dailyWord) {
-      // 6a) Color all 5 letters in this row green
+      _confettiController.play();
       for (int k = startIndex; k <= endIndex; k++) {
         final String guessedLetter = _controllers[k].text;
         _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
@@ -668,20 +684,16 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         _gameTimer.stop();
       });
 
-      // 6c) Win‐3‐in‐a‐row logic
       winStreak++;
       if (winStreak == 3) {
         await UserDataService().awardDiamonds(50);
-        winStreak = 0; // reset after awarding
       }
 
-      // 6d) Solve under-2-minutes logic (only once per day)
       if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
         timeWinStreak++;
         await UserDataService().awardDiamonds(30);
       }
 
-      // 6e) Seven‐day streak logic
       dailyWinStreak++;
       if (dailyWinStreak == 7) {
         await UserDataService().awardDiamonds(150);
@@ -703,7 +715,9 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       showDefinitionDialog(context, _dailyWord);
 
       // 6i) Award points based on number of rows and hints
-      points = calculatePoints("Mode 5", _currentRow, _hintsUsed);
+      final int reward = calculatePoints("Daily", _currentRow, _hintsUsed);
+      points += reward;
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -759,6 +773,10 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       if (_currentTextfield == 35 && !gameWon) {
         // 8a) Reset winStreak to zero
         winStreak = 0;
+        setState(() {
+          gameWon = false;
+          _gameTimer.stop();
+        });
 
         // 8b) Record the loss (no guesses argument, so distribution is not bumped)
         await UserDataService().recordGame(won: false);
@@ -772,7 +790,7 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
         );
 
         // 8d) Show “Incorrect” dialog with the correct word underlined
-        _incorrectWordDialog();
+        showIncorrectDailyDialog(context, _dailyWord);
       }
     }
 
@@ -786,53 +804,6 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
       dailyWinStreak: dailyWinStreak,
       timeWinStreak: timeWinStreak,
       points: points,
-    );
-  }
-
-  void _incorrectWordDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            title: Text(
-              AppLocalizations.of(context).translate('incorrect'),
-              textAlign: TextAlign.center,
-            ),
-            content: RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text:
-                        '${AppLocalizations.of(context).translate('correct_word')} ',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 16,
-                    ),
-                  ),
-                  TextSpan(
-                    text: _dailyWord,
-                    style: TextStyle(
-                      decoration: TextDecoration.underline,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.blue.shade300,
-                    ),
-                    recognizer:
-                        TapGestureRecognizer()
-                          ..onTap = () {
-                            launchUrl(
-                              Uri.parse(
-                                'https://www.almaany.com/ar/dict/ar-ar/$_dailyWord/?',
-                              ),
-                            );
-                          },
-                  ),
-                ],
-              ),
-            ),
-          ),
     );
   }
 }

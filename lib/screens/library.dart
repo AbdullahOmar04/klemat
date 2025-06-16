@@ -30,12 +30,21 @@ class _LibraryState extends State<Library> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.of(context).translate('library') ), centerTitle: true),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).translate('library')),
+        centerTitle: true,
+      ),
       body:
           _loading
               ? const Center(child: CircularProgressIndicator())
               : _words.isEmpty
-              ? const Center(child: Text("No words collected yet."))
+              ? Center(
+                child: Text(
+                  AppLocalizations.of(
+                    context,
+                  ).translate('no_words_collected_yet'),
+                ),
+              )
               : ListView.builder(
                 itemCount: _words.length,
                 itemBuilder: (context, index) {

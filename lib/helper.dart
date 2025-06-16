@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:klemat/main.dart';
 import 'package:klemat/themes/app_localization.dart';
 import 'package:klemat/themes/theme_provider.dart';
@@ -74,8 +76,11 @@ void challenges(BuildContext context) {
 
   showDialog(
     context: context,
+    barrierDismissible: false,
     builder: (context) {
       return AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           AppLocalizations.of(context).translate('challenges'),
           textAlign: TextAlign.center,
@@ -98,14 +103,18 @@ void challenges(BuildContext context) {
                         Text(
                           "${AppLocalizations.of(context).translate("progress")}: ${challenge.currentVal}/${challenge.goal}",
                         ),
-
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             Expanded(
                               child: LinearProgressIndicator(
                                 value: challenge.progress.clamp(0.0, 1.0),
-                                backgroundColor: Colors.grey[300],
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  141,
+                                  141,
+                                  141,
+                                ),
                                 color: Colors.blue,
                               ),
                             ),
@@ -121,9 +130,27 @@ void challenges(BuildContext context) {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppLocalizations.of(context).translate('close')),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Theme.of(context).colorScheme.onError,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  AppLocalizations.of(context).translate('close'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge!.copyWith(color: Colors.white),
+                ),
+              ),
+            ),
           ),
         ],
       );
@@ -414,6 +441,7 @@ Future<void> showStatsDialog(BuildContext context) async {
 
   // 3) Show the AlertDialog
   showDialog(
+    barrierDismissible: false,
     context: context,
     builder:
         (_) => AlertDialog(
@@ -428,26 +456,32 @@ Future<void> showStatsDialog(BuildContext context) async {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _statTile('${GameStatsSnapshot.played}', 'Games\nPlayed'),
+                    _statTile(
+                      '${GameStatsSnapshot.played}',
+                      AppLocalizations.of(context).translate('games_played'),
+                    ),
                     _statTile(
                       '${GameStatsSnapshot.wins.toStringAsFixed(0)}%',
-                      'Win\n  %',
+                      AppLocalizations.of(context).translate('win_percent'),
                     ),
                     _statTile(
                       '${GameStatsSnapshot.currentStreak}',
-                      'Current\nStreak',
+                      AppLocalizations.of(context).translate('current_streak'),
                     ),
                     _statTile(
                       '${GameStatsSnapshot.maxStreak}',
-                      '  Max\nStreak',
+                      AppLocalizations.of(context).translate('max_streak'),
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 20),
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.center,
                   child: Text(
-                    'Guess Distribution',
+                    AppLocalizations.of(
+                      context,
+                    ).translate('guess_distribution'),
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ),
@@ -464,9 +498,27 @@ Future<void> showStatsDialog(BuildContext context) async {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(AppLocalizations.of(context).translate('close')),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.onError,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(context).translate('close'),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge!.copyWith(color: Colors.white),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -543,50 +595,77 @@ void showSettingsDialog(
 
   showDialog(
     context: context,
+    barrierDismissible: false,
     builder: (context) {
       return Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: StatefulBuilder(
           builder: (context, setState) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    AppLocalizations.of(context).translate('settings'),
-                    style: Theme.of(context).textTheme.displaySmall,
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  const SizedBox(height: 20),
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(context).translate('settings'),
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            ).translate('choose_lang'),
-                            style: Theme.of(context).textTheme.headlineSmall,
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+
+                // ─── CONTENT ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // — Language Selection —
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 4),
+                        child: Text(
+                          AppLocalizations.of(context).translate('choose_lang'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
                           ),
-                          DropdownButton<int>(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            isExpanded: true,
                             value: selectedLangIndex,
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 0,
-                                child: Text('English'),
+                                child: Text(
+                                  'English',
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: 1,
-                                child: Text('العربية'),
+                                child: Text(
+                                  'العربية',
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
                               ),
                             ],
                             onChanged: (value) {
@@ -606,114 +685,143 @@ void showSettingsDialog(
                               });
                             },
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
 
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: SwitchListTile(
-                      title: Text(
-                        AppLocalizations.of(
-                          context,
-                        ).translate('enable_vibration'),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      value: isHapticEnabled,
-                      onChanged: (bool value) async {
-                        setState(() {
-                          isHapticEnabled = value;
-                        });
-                        await prefs.setBool('isHapticEnabled', isHapticEnabled);
-                      },
-                    ),
-                  ),
-
-                  // Theme Section
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
+                      // — Haptic (Vibration) Toggle —
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const SizedBox.shrink(),
+                        subtitle: Container(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
                             AppLocalizations.of(
                               context,
-                            ).translate('choose_theme'),
-                            style: Theme.of(context).textTheme.headlineSmall,
+                            ).translate('enable_vibration'),
+                            style: Theme.of(context).textTheme.bodyLarge,
                           ),
-                          RadioListTile<ThemeMode>(
-                            title: Text(
-                              AppLocalizations.of(
-                                context,
-                              ).translate('light_mode'),
+                        ),
+                        value: isHapticEnabled,
+                        onChanged: (bool value) async {
+                          setState(() {
+                            isHapticEnabled = value;
+                          });
+                          await prefs.setBool(
+                            'isHapticEnabled',
+                            isHapticEnabled,
+                          );
+                        },
+                        activeColor: Theme.of(context).colorScheme.onPrimary,
+                      ),
+
+                      // — Theme Selection —
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20, bottom: 4),
+                        child: Text(
+                          AppLocalizations.of(
+                            context,
+                          ).translate('choose_theme'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          children: [
+                            RadioListTile<ThemeMode>(
+                              visualDensity: VisualDensity.compact,
+                              title: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).translate('light_mode'),
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              value: ThemeMode.light,
+                              groupValue: currentTheme,
+                              onChanged: (ThemeMode? value) {
+                                setState(() {
+                                  currentTheme = value!;
+                                  themeNotifier.setTheme(currentTheme);
+                                });
+                              },
                             ),
-                            value: ThemeMode.light,
-                            groupValue: currentTheme,
-                            onChanged: (ThemeMode? value) {
-                              setState(() {
-                                currentTheme = value!;
-                                themeNotifier.setTheme(currentTheme);
-                              });
-                            },
-                          ),
-                          RadioListTile<ThemeMode>(
-                            title: Text(
-                              AppLocalizations.of(
-                                context,
-                              ).translate('dark_mode'),
+                            const Divider(height: 1),
+                            RadioListTile<ThemeMode>(
+                              visualDensity: VisualDensity.compact,
+                              title: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).translate('dark_mode'),
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              value: ThemeMode.dark,
+                              groupValue: currentTheme,
+                              onChanged: (ThemeMode? value) {
+                                setState(() {
+                                  currentTheme = value!;
+                                  themeNotifier.setTheme(currentTheme);
+                                });
+                              },
                             ),
-                            value: ThemeMode.dark,
-                            groupValue: currentTheme,
-                            onChanged: (ThemeMode? value) {
-                              setState(() {
-                                currentTheme = value!;
-                                themeNotifier.setTheme(currentTheme);
-                              });
-                            },
-                          ),
-                          RadioListTile<ThemeMode>(
-                            title: Text(
-                              AppLocalizations.of(
-                                context,
-                              ).translate('system_mode'),
+                            const Divider(height: 1),
+                            RadioListTile<ThemeMode>(
+                              visualDensity: VisualDensity.compact,
+                              title: Text(
+                                AppLocalizations.of(
+                                  context,
+                                ).translate('system_mode'),
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              value: ThemeMode.system,
+                              groupValue: currentTheme,
+                              onChanged: (ThemeMode? value) {
+                                setState(() {
+                                  currentTheme = value!;
+                                  themeNotifier.setTheme(currentTheme);
+                                });
+                              },
                             ),
-                            value: ThemeMode.system,
-                            groupValue: currentTheme,
-                            onChanged: (ThemeMode? value) {
-                              setState(() {
-                                currentTheme = value!;
-                                themeNotifier.setTheme(currentTheme);
-                              });
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ─── ACTIONS ──────────────────────────────────────────────
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.onError,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context).translate('close'),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge!.copyWith(color: Colors.white),
                       ),
                     ),
                   ),
-
-                  // Close Button
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: Text(
-                      AppLocalizations.of(context).translate('close'),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),
@@ -1090,6 +1198,7 @@ Future<List<String>> fetchAlmaanyDefinitions(
 void showDefinitionDialog(BuildContext context, String word) {
   showDialog(
     context: context,
+    barrierDismissible: false,
     builder:
         (ctx) => FutureBuilder<List<String>>(
           future: fetchAlmaanyDefinitions(context, word),
@@ -1102,10 +1211,30 @@ void showDefinitionDialog(BuildContext context, String word) {
                 title: Text('Error'),
                 content: Text(snap.error.toString()),
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(
-                      AppLocalizations.of(context).translate('close'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.onError,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          AppLocalizations.of(context).translate('close'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyLarge!.copyWith(color: Colors.white),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1176,11 +1305,214 @@ void showDefinitionDialog(BuildContext context, String word) {
                 children: defs.take(5).map((d) => Text('• $d')).toList(),
               ),
               actions: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.onError,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context).translate('close'),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge!.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+  );
+}
+
+void incorrectWordDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder:
+        (context) => AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text(
+            AppLocalizations.of(context).translate('incorrect'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          content: Text(
+            AppLocalizations.of(context).translate('try_again'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.onError,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(context).translate('close'),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge!.copyWith(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+  );
+}
+
+void showIncorrectDailyDialog(BuildContext context, String word) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder:
+        (context) => FutureBuilder<List<String>>(
+          future: fetchAlmaanyDefinitions(context, word),
+          builder: (ctx, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return AlertDialog(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                content: SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+
+            if (snap.hasError) {
+              return AlertDialog(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                title: Text('Error'),
+                content: Text(snap.error.toString()),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text(
+                      AppLocalizations.of(context).translate('close'),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final List<String> definitions = snap.data!;
+            return AlertDialog(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              title: Text(
+                AppLocalizations.of(context).translate('incorrect'),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(context).translate('correct_word')}: ',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 16,
+                            ),
+                          ),
+                          TextSpan(
+                            text: word,
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: Colors.blue.shade300,
+                            ),
+                            recognizer:
+                                TapGestureRecognizer()
+                                  ..onTap = () {
+                                    launchUrl(
+                                      Uri.parse(
+                                        'https://www.almaany.com/ar/dict/ar-ar/$word/?',
+                                      ),
+                                    );
+                                  },
+                          ),
+                          TextSpan(
+                            text: AppLocalizations.of(
+                              context,
+                            ).translate('pronounce'),
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: Colors.blue.shade300,
+                            ),
+                            recognizer:
+                                TapGestureRecognizer()
+                                  ..onTap = () {
+                                    launchUrl(
+                                      Uri.parse('https://forvo.com/word/$word'),
+                                    );
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children:
+                          definitions
+                              .take(5)
+                              .map(
+                                (def) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4.0,
+                                  ),
+                                  child: Text('• $def'),
+                                ),
+                              )
+                              .toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(ctx).pop();
                   },
-                  child: Text(AppLocalizations.of(context).translate('close')),
+                  child: Text(
+                    AppLocalizations.of(context).translate('got_it'),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             );
@@ -1192,6 +1524,7 @@ void showDefinitionDialog(BuildContext context, String word) {
 void showHowToPlayDialog(BuildContext context) {
   showDialog(
     context: context,
+    barrierDismissible: false,
     builder: (ctx) {
       return AlertDialog(
         title: Text(
@@ -1250,8 +1583,16 @@ void showHowToPlayDialog(BuildContext context) {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppLocalizations.of(context).translate('got_it')),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+            },
+            child: Text(
+              AppLocalizations.of(context).translate('got_it'),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       );
@@ -1280,68 +1621,129 @@ Widget _colorHintRow(Color color, String text) {
 }
 
 int calculatePoints(String mode, int wonAtRow, int hintsUsed) {
+  int earned = 0;
+
+  if (mode == 'Daily') {
+    switch (wonAtRow) {
+      case 0:
+        earned = 15;
+        break;
+      case 1:
+        earned = 14;
+        break;
+      case 2:
+        earned = 13;
+        break;
+      case 3:
+        earned = 12;
+        break;
+      case 4:
+        earned = 11;
+        break;
+      case 5:
+        earned = 10;
+        break;
+      case 6:
+        earned = 9;
+        break;
+      default:
+        earned = 0;
+    }
+  }
+
   if (mode == 'Mode 5') {
     switch (wonAtRow) {
       case 0:
-        points += 10;
+        earned = 10;
+        break;
       case 1:
-        points += 9;
+        earned = 9;
+        break;
       case 2:
-        points += 8;
+        earned = 8;
+        break;
       case 3:
-        points += 7;
+        earned = 7;
+        break;
       case 4:
-        points += 6;
+        earned = 6;
+        break;
       case 5:
-        points += 5;
+        earned = 5;
+        break;
       case 6:
-        points += 4;
+        earned = 4;
+        break;
+      default:
+        earned = 0;
     }
   }
 
   if (mode == 'Mode 4') {
     switch (wonAtRow) {
       case 0:
-        points += 8;
+        earned = 8;
+        break;
       case 1:
-        points += 7;
+        earned = 7;
+        break;
       case 2:
-        points += 6;
+        earned = 6;
+        break;
       case 3:
-        points += 5;
+        earned = 5;
+        break;
       case 4:
-        points += 4;
+        earned = 4;
+        break;
       case 5:
-        points += 3;
+        earned = 3;
+        break;
       case 6:
-        points += 2;
+        earned = 2;
+        break;
+      default:
+        earned = 0;
     }
   }
 
   if (mode == 'Mode 3') {
     switch (wonAtRow) {
       case 0:
-        points += 6;
+        earned = 6;
+        break;
       case 1:
-        points += 5;
+        earned = 5;
+        break;
       case 2:
-        points += 4;
+        earned = 4;
+        break;
       case 3:
-        points += 3;
+        earned = 3;
+        break;
       case 4:
-        points += 2;
+        earned = 2;
+        break;
       case 5:
-        points += 1;
+        earned = 1;
+        break;
       case 6:
-        points += 1;
+        earned = 1;
+        break;
+      default:
+        earned = 0;
     }
   }
 
-  for (int i = 0; i < hintsUsed; i++) {
-    if (points >= 1) {
-      points -= 1;
-    }
-  }
+  earned = max(0, earned - hintsUsed);
 
-  return points;
+  return earned;
+}
+
+Future<void> triggerHapticFeedback() async {
+  final prefs = await SharedPreferences.getInstance();
+  bool isHapticEnabled = prefs.getBool('isHapticEnabled') ?? true;
+  if (isHapticEnabled) {
+    HapticFeedback.lightImpact();
+  }
 }

@@ -264,10 +264,13 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
               AppLocalizations.of(context).translate('daily_mode'),
               Colors.green.shade300,
               Colors.teal.shade300,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const DailyMode()),
-              ),
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DailyMode()),
+                );
+                triggerHapticFeedback();
+              },
             ),
             const SizedBox(height: 10),
             Padding(
@@ -279,16 +282,19 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     AppLocalizations.of(context).translate('5_letter_mode'),
                     const Color.fromARGB(255, 142, 212, 241),
                     const Color.fromARGB(255, 0, 125, 179),
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => LevelMapPage(
-                              "Mode 5",
-                              currentLevel: currentFiveModeLevel,
-                            ),
-                      ),
-                    ),
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => LevelMapPage(
+                                "Mode 5",
+                                currentLevel: currentFiveModeLevel,
+                              ),
+                        ),
+                      );
+                      triggerHapticFeedback();
+                    },
                   ),
                   const SizedBox(width: 10),
                   buildModeButton(
@@ -296,16 +302,19 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     AppLocalizations.of(context).translate('4_letter_mode'),
                     const Color.fromARGB(255, 255, 201, 120),
                     const Color.fromARGB(255, 255, 114, 20),
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => LevelMapPage(
-                              "Mode 4",
-                              currentLevel: currentFourModeLevel,
-                            ),
-                      ),
-                    ),
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => LevelMapPage(
+                                "Mode 4",
+                                currentLevel: currentFourModeLevel,
+                              ),
+                        ),
+                      );
+                      triggerHapticFeedback();
+                    },
                   ),
                   const SizedBox(width: 10),
                   buildModeButton(
@@ -313,16 +322,19 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                     AppLocalizations.of(context).translate('3_letter_mode'),
                     const Color.fromARGB(255, 219, 142, 255),
                     const Color.fromARGB(255, 104, 8, 148),
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => LevelMapPage(
-                              "Mode 3",
-                              currentLevel: currentThreeModeLevel,
-                            ),
-                      ),
-                    ),
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => LevelMapPage(
+                                "Mode 3",
+                                currentLevel: currentThreeModeLevel,
+                              ),
+                        ),
+                      );
+                      triggerHapticFeedback();
+                    },
                   ),
                 ],
               ),
@@ -336,7 +348,10 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                   const Icon(Icons.settings, color: Colors.white),
                   const Color.fromARGB(255, 206, 206, 206),
                   Colors.grey.shade700,
-                  () => showSettingsDialog(context, themeNotifier),
+                  () {
+                    showSettingsDialog(context, themeNotifier);
+                    triggerHapticFeedback();
+                  },
                 ),
                 const SizedBox(width: 10),
                 smallButton(
@@ -344,7 +359,10 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                   const Icon(Icons.emoji_events, color: Colors.white, size: 35),
                   const Color.fromARGB(255, 189, 255, 250),
                   const Color.fromARGB(255, 0, 185, 185),
-                  () => challenges(context),
+                  () {
+                    challenges(context);
+                    triggerHapticFeedback();
+                  },
                 ),
                 const SizedBox(width: 10),
                 smallButton(
@@ -352,7 +370,10 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
                   const Icon(Icons.storefront_outlined, color: Colors.white),
                   const Color.fromARGB(255, 255, 169, 163),
                   const Color.fromARGB(255, 255, 47, 32),
-                  () => openShop(context),
+                  () {
+                    openShop(context);
+                    triggerHapticFeedback();
+                  },
                 ),
               ],
             ),

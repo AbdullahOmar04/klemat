@@ -10,7 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:confetti/confetti.dart';
 
 class FourLetterScreen extends StatefulWidget {
   final String correctWord;
@@ -62,12 +62,17 @@ class _FourLetterScreen extends State<FourLetterScreen>
   final List<AnimationController> _scaleControllers = [];
   final List<Animation<double>> _scaleAnimations = [];
 
+  late final ConfettiController _confettiController;
+
   @override
   void initState() {
     super.initState();
     _loadWordsFromJson();
     _loadUserData();
     _correctWord = widget.correctWord;
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 1),
+    );
 
     for (int i = 0; i < 7; i++) {
       final controller = AnimationController(
@@ -185,6 +190,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
       controller.dispose();
     }
     _gameTimer.stop();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -325,6 +331,17 @@ class _FourLetterScreen extends State<FourLetterScreen>
                 );
               },
             ),
+          ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality:
+                BlastDirectionality.explosive, // shoots in all directions
+            shouldLoop: false, // just one burst
+            emissionFrequency: 0.05, // how many particles per frame
+            numberOfParticles: 20, // total particles per blast
+            maxBlastForce: 20, // how far they go
+            minBlastForce: 5,
+            gravity: 0.2, // gravity pull
+          ),
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
@@ -572,6 +589,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
 
     // 4) If guessed word matches the correct word → WIN
     if (currentWord == _correctWord) {
+      _confettiController.play();
       for (int k = startIndex; k <= endIndex; k++) {
         guessedLetter = _controllers[k].text;
         _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
@@ -614,7 +632,8 @@ class _FourLetterScreen extends State<FourLetterScreen>
           .update({'currentLevel4': currentFourModeLevel});
 
       // 4f) Award “points” based on row/hints, update Firestore
-      points = calculatePoints("Mode 4", _currentRow, _hintsUsed);
+      final int reward = calculatePoints("Mode 4", _currentRow, _hintsUsed);
+      points += reward;
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
@@ -670,6 +689,10 @@ class _FourLetterScreen extends State<FourLetterScreen>
       if (_currentTextfield == 28 && gameWon == false) {
         // 6a) Reset winStreak to zero
         winStreak = 0;
+        setState(() {
+          gameWon = false;
+          _gameTimer.stop();
+        });
 
         // 6b) Record the loss: pass won: false (no guesses argument)
         await UserDataService().recordGame(won: false);
@@ -683,51 +706,7 @@ class _FourLetterScreen extends State<FourLetterScreen>
         );
 
         // 6d) Show “You lost” dialog with correct word
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                title: Text(
-                  AppLocalizations.of(context).translate('incorrect'),
-                  textAlign: TextAlign.center,
-                ),
-                content: RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: AppLocalizations.of(
-                          context,
-                        ).translate('correct_word'),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 16,
-                        ),
-                      ),
-                      TextSpan(
-                        text: _correctWord,
-                        style: TextStyle(
-                          decoration: TextDecoration.underline,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: Colors.blue.shade300,
-                        ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap = () {
-                                launchUrl(
-                                  Uri.parse(
-                                    'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?',
-                                  ),
-                                );
-                              },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-        );
+        incorrectWordDialog(context);
       }
     }
 

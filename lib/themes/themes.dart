@@ -10,7 +10,7 @@ final ThemeData lightTheme = ThemeData(
     onSecondary: Colors.orange.shade300,
     onError: Colors.grey.shade600,
     onSurface: Colors.black,
-    tertiary: Colors.grey.shade800
+    tertiary: Colors.grey.shade800,
   ),
 );
 
@@ -24,6 +24,6 @@ final ThemeData darkTheme = ThemeData(
     onSecondary: Colors.orange.shade700,
     onError: Colors.grey.shade800,
     onSurface: Colors.grey.shade200,
-    tertiary: Colors.grey.shade400
+    tertiary: Colors.grey.shade400,
   ),
 );

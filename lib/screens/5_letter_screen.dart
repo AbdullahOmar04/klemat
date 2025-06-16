@@ -10,7 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:confetti/confetti.dart';
 
 class FiveLetterScreen extends StatefulWidget {
   final String correctWord;
@@ -65,12 +65,17 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
   final List<AnimationController> _scaleControllers = [];
   final List<Animation<double>> _scaleAnimations = [];
 
+  late final ConfettiController _confettiController;
+
   @override
   void initState() {
     super.initState();
     _loadWordsFromJson();
     _loadUserData();
     _correctWord = widget.correctWord;
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 1),
+    );
 
     for (int i = 0; i < 7; i++) {
       final controller = AnimationController(
@@ -188,6 +193,7 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       controller.dispose();
     }
     _gameTimer.stop();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -331,7 +337,17 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
                 );
               },
             ),
-
+          ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality:
+                BlastDirectionality.explosive, // shoots in all directions
+            shouldLoop: false, // just one burst
+            emissionFrequency: 0.05, // how many particles per frame
+            numberOfParticles: 20, // total particles per blast
+            maxBlastForce: 20, // how far they go
+            minBlastForce: 5,
+            gravity: 0.2, // gravity pull
+          ),
           CustomKeyboard(
             onTextInput: (myText) => _insertText(myText),
             onBackspace: _backspace,
@@ -500,7 +516,6 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
   void _submit() async {
     print(_correctWord);
 
-    // 1) Check that we have exactly 5 letters in the current row
     if (_currentTextfield % 5 != 0 || _fiveLettersStop != 5) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -527,7 +542,6 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       return;
     }
 
-    // 2) Build the guessed word from the last 5 textfields
     List<String> _currentWordList = [];
     String _currentWord = "";
     String _guessedLetter;
@@ -535,20 +549,17 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
     int startIndex = _currentTextfield - 5;
     int endIndex = _currentTextfield - 1;
 
-    // Decompose the correct word into letters and count frequencies
     List<String> _deconstructedCorrectWord = _correctWord.split('');
     Map<String, int> letterCounts = {};
     for (var letter in _deconstructedCorrectWord) {
       letterCounts[letter] = (letterCounts[letter] ?? 0) + 1;
     }
 
-    // Gather the letters the user has typed in this row
     for (int i = startIndex; i <= endIndex; i++) {
       _currentWordList.add(_controllers[i].text);
     }
     _currentWord = _currentWordList.join("");
 
-    // 3) If the guessed word is not in your valid‐words list, show shake+snackbar
     if (!words.contains(_currentWord)) {
       _vibrateTwice();
       _shakeCurrentRow();
@@ -575,9 +586,8 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
       return;
     }
 
-    // 4) If the guess matches the correct word, handle the “win” logic
     if (_currentWord == _correctWord) {
-      // Color all letters in this row green (onPrimary)
+      _confettiController.play();
       for (int k = startIndex; k <= endIndex; k++) {
         _guessedLetter = _controllers[k].text;
         _fillColors[k] = Theme.of(context).colorScheme.onPrimary;
@@ -585,13 +595,11 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
         _colorTypes[k] = "onPrimary";
       }
 
-      // Stop the timer and mark game as won
       setState(() {
         gameWon = true;
         _gameTimer.stop();
       });
 
-      // 4a) Increment winStreak. If it just reached 3, award 50 diamonds
       if (winStreak < 3) {
         winStreak++;
         if (winStreak == 3) {
@@ -599,7 +607,6 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
         }
       }
 
-      // 4b) If solved in under 120 seconds and timeWinStreak == 0, award 30 diamonds
       if (_gameTimer.elapsedSeconds < 120 && timeWinStreak == 0) {
         setState(() {
           timeWinStreak++;
@@ -607,25 +614,21 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
         await UserDataService().awardDiamonds(30);
       }
 
-      // 4c) Record the win in Firestore & in‐memory stats
-      //     Use (_currentRow + 1) as the “guess count” for distribution.
       await UserDataService().recordGame(
         won: true,
         guesses: _currentRow + 1, // row index starts at 0
       );
 
-      // 4d) Show definition popup
       showDefinitionDialog(context, _correctWord);
 
-      // 4e) Advance their “currentFiveModeLevel” in Firestore
       currentFiveModeLevel++;
       await FirebaseFirestore.instance
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
           .update({'currentLevel5': currentFiveModeLevel});
 
-      // 4f) Award “points” based on row/hints, and update Firestore
-      points = calculatePoints("Mode 5", _currentRow, _hintsUsed);
+      final int reward = calculatePoints("Mode 5", _currentRow, _hintsUsed);
+      points += reward;
 
       await FirebaseFirestore.instance
           .collection('users')
@@ -638,20 +641,16 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
             'lastUpdated': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
     } else {
-      // 5) “Color‐hint” logic for an incorrect guess (letters in correct spot, etc.)
-      //    First pass: mark exact matches green
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         _guessedLetter = _controllers[i].text;
         if (_guessedLetter == _deconstructedCorrectWord[j]) {
           _fillColors[i] = Theme.of(context).colorScheme.onPrimary;
           keyColors[_guessedLetter] = Theme.of(context).colorScheme.onPrimary;
           _colorTypes[i] = "onPrimary";
-          // reduce count so we don't over‐count duplicates
           letterCounts[_guessedLetter] = letterCounts[_guessedLetter]! - 1;
         }
       }
 
-      // 5b) Second pass: mark “in word but wrong spot” (onSecondary), else gray (onError)
       for (int i = startIndex, j = 0; i <= endIndex; i++, j++) {
         _guessedLetter = _controllers[i].text;
         if (_fillColors[i] != Theme.of(context).colorScheme.onPrimary) {
@@ -678,17 +677,15 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
         }
       }
 
-      // 5c) If this was the last possible guess (i.e. 35 letters ≡ 7 rows of 5)
       if (_currentTextfield == 35 && gameWon == false) {
-        // Reset the winStreak to zero on a loss
         winStreak = 0; // ← FIX: reset streak immediately
+        setState(() {
+          gameWon = false;
+          _gameTimer.stop();
+        });
 
-        // Record the loss in stats (played +1, wins unchanged, currentStreak→0, distribution)
-        // Here we pass guesses = (_currentRow + 1). Even though it's a loss, we
-        // want to increment “played,” reset streak, etc.
         await UserDataService().recordGame(won: false);
 
-        // Make sure Firestore & local streak fields are in sync
         await UserDataService().saveStreaks(
           winStreak: winStreak,
           dailyWinStreak: dailyWinStreak,
@@ -696,86 +693,16 @@ class _FiveLetterScreen extends State<FiveLetterScreen>
           points: points,
         );
 
-        // Show a “You lost” dialog with the correct word
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                title: Text(
-                  AppLocalizations.of(context).translate('incorrect'),
-                  textAlign: TextAlign.center,
-                ),
-                content: RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: AppLocalizations.of(
-                          context,
-                        ).translate('correct_word'),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 16,
-                        ),
-                      ),
-                      TextSpan(
-                        text: _correctWord,
-                        style: TextStyle(
-                          decoration: TextDecoration.underline,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: Colors.blue.shade300,
-                        ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap = () {
-                                launchUrl(
-                                  Uri.parse(
-                                    'https://www.almaany.com/ar/dict/ar-ar/$_correctWord/?',
-                                  ),
-                                );
-                              },
-                      ),
-                      TextSpan(
-                        text: AppLocalizations.of(
-                          context,
-                        ).translate('how_to_pronounce'),
-                        style: TextStyle(
-                          decoration: TextDecoration.underline,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: Colors.blue.shade300,
-                        ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap = () {
-                                launchUrl(
-                                  Uri.parse(
-                                    'https://forvo.com/word/$_correctWord',
-                                  ),
-                                );
-                              },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-        );
+        incorrectWordDialog(context);
       }
     }
 
-    // 6) Clear out the word buffer and move to the next row
     _currentWordList.clear();
     _fiveLettersStop = 0;
     _currentRow++;
 
-    // 7) Record that this word was “gotten” (so you don’t repeat it, etc.)
     await UserDataService().addGottenWord(_correctWord);
 
-    // 8) Finally, save all streaks/points one more time, in case anything changed
-    //    (In the “win” branch, we already called recordGame(...) which updated GameStatsSnapshot.
-    //     In the “loss” branch, we called recordGame(...) and saveStreaks(...) as well.)
     await UserDataService().saveStreaks(
       winStreak: winStreak,
       dailyWinStreak: dailyWinStreak,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:klemat/helper.dart';
 
 class CustomKeyboard extends StatelessWidget {
   final ValueSetter<String> onTextInput;
@@ -255,10 +255,4 @@ class SubmitKey extends StatelessWidget {
   }
 }
 
-Future<void> triggerHapticFeedback() async {
-  final prefs = await SharedPreferences.getInstance();
-  bool isHapticEnabled = prefs.getBool('isHapticEnabled') ?? true;
-  if (isHapticEnabled) {
-    HapticFeedback.lightImpact();
-  }
-}
+

@@ -19,7 +19,8 @@
   "not_in_library": "Not in word list",
   "correct_title": "Correct!",
   "learn_word": "Learn the meaning of ",
-  "incorrect": "Incorrect",
+  "incorrect": "Incorrect Word",
+  "try_again": "Try Again!",
   "correct_word": "The correct word is: ",
   "choose_lang": "Language",
   "daily_mode": "Daily Mode",
@@ -51,5 +52,15 @@
   "bonus": "💎 Bonus:",
   "bonus_desc": "Make sure to complete the challenges to win diamonds!",
   "got_it": "Got it!",
-  "not_enough_diamonds": "You don't have enough diamonds!"
+  "not_enough_diamonds": "You don't have enough diamonds!",
+  "games_played": "Games\nPlayed",
+  "win_percent": "Win\n  %",
+  "current_streak": "Current\nStreak",
+  "max_streak": "Max\nStreak",
+  "guess_distribution": "Guess Distribution",
+  "no_words_collected_yet": "No words collected yet",
+  "pts": "pts",
+  "please_enter_email": "Please enter your email address.",
+  "password_reset_sent": "Password reset email sent.",
+  "error_occurred": "Error occurred."
 }
