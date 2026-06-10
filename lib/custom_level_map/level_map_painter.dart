@@ -21,7 +21,7 @@ class LevelMapPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round,
         _shadowPaint = Paint()
           ..strokeWidth = params.pathStrokeWidth
-          ..color = params.pathColor.withOpacity(0.2)
+          ..color = params.pathColor.withValues(alpha: 0.2)
           ..strokeCap = StrokeCap.round,
         _nextLevelFraction =
             params.currentLevel - params.currentLevel.floor();
@@ -214,7 +214,7 @@ class LevelMapPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx, cy),
       dia / 2,
-      Paint()..color = params.pathColor.withOpacity(0.9),
+      Paint()..color = params.pathColor.withValues(alpha: 0.9),
     );
     // border
     canvas.drawCircle(

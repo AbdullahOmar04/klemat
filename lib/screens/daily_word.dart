@@ -722,7 +722,9 @@ class _DailyMode extends State<DailyMode> with TickerProviderStateMixin {
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser?.uid)
           .set({
-            'points': FieldValue.increment(points),
+            // Write the cumulative total, not an increment of it. `points` is
+            // loaded at startup and already includes this win's reward.
+            'points': points,
             'username':
                 FirebaseAuth.instance.currentUser?.email?.split('@').first ??
                 'Guest',

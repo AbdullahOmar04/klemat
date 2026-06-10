@@ -61,7 +61,7 @@ class GestureArea {
 //   @override
 //   void paint(Canvas canvas, Size size) {
 //     final paint = Paint()
-//       ..color = Colors.red.withOpacity(0.3)
+//       ..color = Colors.red.withValues(alpha: 0.3)
 //       ..style = PaintingStyle.fill;
 //       
 //     for (final area in areas) {

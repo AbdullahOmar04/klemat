@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// Klemat Firestore security rules.
+//
+// Baseline posture: nothing is accessible without authentication, and a user
+// can only ever WRITE their own document. User documents are readable by any
+// signed-in user because the leaderboard screen queries the whole `users`
+// collection ordered by `points` (see lib/screens/leaderboard.dart).
+//
+// NOTE ON ANTI-CHEAT: because the client legitimately writes its own `points`,
+// `diamonds`, and level progress, these rules cannot stop a determined user
+// from inflating their OWN score. Preventing that requires server-side
+// validation (a Cloud Function or callable that owns score writes). These
+// rules close the open-database hole (the #1 risk) but are not a substitute
+// for server-authoritative scoring. See the lightweight value guards below.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Per-user game state. Readable by any signed-in user (leaderboard needs
+    // the whole collection); writable only by the owner.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(uid)
+        // Cheap sanity guards: scores/currencies must be non-negative numbers.
+        && (!('points' in request.resource.data)
+            || (request.resource.data.points is int
+                && request.resource.data.points >= 0))
+        && (!('diamonds' in request.resource.data)
+            || (request.resource.data.diamonds is int
+                && request.resource.data.diamonds >= 0));
+      allow delete: if false;
+    }
+
+    // Legacy/unused `leaderboard` collection (written only by the currently
+    // uncalled UserDataService.updateLeaderboard). Kept locked the same way so
+    // it is safe if ever re-enabled.
+    match /leaderboard/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    // Everything else is denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

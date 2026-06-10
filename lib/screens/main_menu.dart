@@ -14,8 +14,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MainMenu extends StatefulWidget {
   final String username;
+  final bool showHowToPlay;
 
-  const MainMenu({super.key, required this.username});
+  const MainMenu({
+    super.key,
+    required this.username,
+    this.showHowToPlay = false,
+  });
 
   @override
   State<MainMenu> createState() => _MainMenuState();
@@ -31,6 +36,13 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
     super.initState();
     _checkDailyLoginReward();
     _loadUserData();
+    // Show the how-to-play guide for brand-new accounts, once the menu is laid
+    // out (the old code called this on the login page's dead context).
+    if (widget.showHowToPlay) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showHowToPlayDialog(context);
+      });
+    }
   }
 
   @override
@@ -82,6 +94,9 @@ class _MainMenuState extends State<MainMenu> with RouteAware {
       winStreak = streaks['winStreak'] ?? 0;
       dailyWinStreak = streaks['dailyWinStreak'] ?? 0;
       timeWinStreak = streaks['timeWinStreak'] ?? 0;
+      // Points must be loaded too, otherwise the global resets to 0 each launch
+      // and the next win overwrites the leaderboard total with a session-only value.
+      points = streaks['points'] ?? 0;
 
       // Levels
       currentFiveModeLevel = levels['five']!;

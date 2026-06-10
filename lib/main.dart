@@ -10,10 +10,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:klemat/themes/app_localization.dart';
 import 'package:klemat/helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:klemat/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   final prefs = await SharedPreferences.getInstance();
   final langCode = prefs.getString('languageCode') ?? 'ar';
@@ -72,10 +75,17 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email;
-    final usernamelong = email?.split('@').first ?? 'Guest';
-    final username =
-        usernamelong.length > 12 ? usernamelong.substring(0, 13) : usernamelong;
+    final String username;
+    if (user == null) {
+      username = 'Guest';
+    } else if (user.isAnonymous || user.email == null) {
+      // Match the name guests are given at sign-in (login.dart) so the menu
+      // greeting stays consistent across app restarts.
+      username = 'Guest-${user.uid.substring(0, 5)}';
+    } else {
+      final name = user.email!.split('@').first;
+      username = name.length > 12 ? name.substring(0, 12) : name;
+    }
 
     return Consumer<ThemeNotifier>(
       builder: (context, themeNotifier, child) {

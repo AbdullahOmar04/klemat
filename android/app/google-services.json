@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:651818657583:android:ab18341b7f419d972ae3da",
+        "mobilesdk_app_id": "1:651818657583:android:7eee5518c8e447f42ae3da",
         "android_client_info": {
-          "package_name": "com.example.klemat"
+          "package_name": "com.abdullahomar.klemat"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "651818657583-1fobi1i21fpb6po4u2k9q35rutrt9tc4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.abdullahomar.klemat",
+            "certificate_hash": "87659e328c347f11f980d64bac657680c4c0e6a7"
+          }
+        },
+        {
+          "client_id": "651818657583-rv4uhrfppstevmcdl7d7vhb40iosrt7n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAEOtmDpD1LNeqWuhpJNwy4iGY4mceZEow"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "651818657583-rv4uhrfppstevmcdl7d7vhb40iosrt7n.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

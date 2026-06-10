@@ -5,9 +5,7 @@ import 'package:klemat/custom_level_map/image_params.dart';
 import 'package:klemat/custom_level_map/level_map.dart';
 import 'package:klemat/custom_level_map/level_map_paramas.dart';
 import 'package:klemat/helper.dart';
-import 'package:klemat/screens/3_letter_screen.dart';
-import 'package:klemat/screens/4_letter_screen.dart';
-import 'package:klemat/screens/5_letter_screen.dart';
+import 'package:klemat/screens/word_game_screen.dart';
 
 class LevelMapPage extends StatefulWidget {
   final int currentLevel;
@@ -70,12 +68,13 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
     final word = await getWordForLevel(widget.whichMode, widget.currentLevel);
     if (word == null) return;
 
-    Widget screen =
-        widget.whichMode == "Mode 5"
-            ? FiveLetterScreen(correctWord: word)
-            : widget.whichMode == "Mode 4"
-            ? FourLetterScreen(correctWord: word)
-            : ThreeLetterScreen(correctWord: word);
+    final int wordLength = switch (widget.whichMode) {
+      "Mode 5" => 5,
+      "Mode 4" => 4,
+      _ => 3,
+    };
+
+    Widget screen = WordGameScreen(correctWord: word, wordLength: wordLength);
 
     Navigator.pushReplacement(
       context,
@@ -103,7 +102,7 @@ class _LevelMapPageState extends State<LevelMapPage> with RouteAware {
                   ? const Color.fromARGB(255, 255, 201, 120)
                   : const Color.fromARGB(255, 219, 142, 255),
           levelMapParams: LevelMapParams(
-            levelCount: 30,
+            levelCount: 50,
             currentLevel: widget.currentLevel,
             pathColor:
                 mode == "Mode 5"

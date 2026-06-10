@@ -20,11 +20,25 @@ dependencies:
   provider: ^6.1.4
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.1
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# App icon generation. Run after changing the icon:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  # Adaptive icon for Android 8+ so launchers can mask it cleanly to any shape.
+  adaptive_icon_background: "#5F6E33"
+  adaptive_icon_foreground: "assets/images/icon.png"
 
 flutter:
   uses-material-design: true
@@ -54,5 +68,7 @@ flutter:
     - assets/images/arab3-removebg-preview.png
     - assets/images/white_background.png
     - assets/images/dark_background.png
+    - assets/images/google_g.jpg
+    - assets/images/icon.png
 
 

@@ -219,6 +219,7 @@ class UserDataService {
       'winStreak': data?['winStreak'] ?? 0,
       'dailyWinStreak': data?['dailyWinStreak'] ?? 0,
       'timeWinStreak': data?['timeWinStreak'] ?? 0,
+      'points': data?['points'] ?? 0,
     };
   }
 
@@ -711,7 +712,7 @@ void showSettingsDialog(
                             isHapticEnabled,
                           );
                         },
-                        activeColor: Theme.of(context).colorScheme.onPrimary,
+                        activeThumbColor: Theme.of(context).colorScheme.onPrimary,
                       ),
 
                       // — Theme Selection —
@@ -732,62 +733,50 @@ void showSettingsDialog(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          children: [
-                            RadioListTile<ThemeMode>(
-                              visualDensity: VisualDensity.compact,
-                              title: Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).translate('light_mode'),
-                                style: Theme.of(context).textTheme.bodyLarge,
+                        child: RadioGroup<ThemeMode>(
+                          groupValue: currentTheme,
+                          onChanged: (ThemeMode? value) {
+                            setState(() {
+                              currentTheme = value!;
+                              themeNotifier.setTheme(currentTheme);
+                            });
+                          },
+                          child: Column(
+                            children: [
+                              RadioListTile<ThemeMode>(
+                                visualDensity: VisualDensity.compact,
+                                title: Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  ).translate('light_mode'),
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                value: ThemeMode.light,
                               ),
-                              value: ThemeMode.light,
-                              groupValue: currentTheme,
-                              onChanged: (ThemeMode? value) {
-                                setState(() {
-                                  currentTheme = value!;
-                                  themeNotifier.setTheme(currentTheme);
-                                });
-                              },
-                            ),
-                            const Divider(height: 1),
-                            RadioListTile<ThemeMode>(
-                              visualDensity: VisualDensity.compact,
-                              title: Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).translate('dark_mode'),
-                                style: Theme.of(context).textTheme.bodyLarge,
+                              const Divider(height: 1),
+                              RadioListTile<ThemeMode>(
+                                visualDensity: VisualDensity.compact,
+                                title: Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  ).translate('dark_mode'),
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                value: ThemeMode.dark,
                               ),
-                              value: ThemeMode.dark,
-                              groupValue: currentTheme,
-                              onChanged: (ThemeMode? value) {
-                                setState(() {
-                                  currentTheme = value!;
-                                  themeNotifier.setTheme(currentTheme);
-                                });
-                              },
-                            ),
-                            const Divider(height: 1),
-                            RadioListTile<ThemeMode>(
-                              visualDensity: VisualDensity.compact,
-                              title: Text(
-                                AppLocalizations.of(
-                                  context,
-                                ).translate('system_mode'),
-                                style: Theme.of(context).textTheme.bodyLarge,
+                              const Divider(height: 1),
+                              RadioListTile<ThemeMode>(
+                                visualDensity: VisualDensity.compact,
+                                title: Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  ).translate('system_mode'),
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                value: ThemeMode.system,
                               ),
-                              value: ThemeMode.system,
-                              groupValue: currentTheme,
-                              onChanged: (ThemeMode? value) {
-                                setState(() {
-                                  currentTheme = value!;
-                                  themeNotifier.setTheme(currentTheme);
-                                });
-                              },
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -870,7 +859,7 @@ Widget longBuildModeButton(
                 borderRadius: BorderRadius.circular(5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.4),
+                    color: Colors.grey.withValues(alpha: 0.4),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -965,7 +954,7 @@ Widget buildModeButton(
                   borderRadius: BorderRadius.circular(5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.4),
+                      color: Colors.grey.withValues(alpha: 0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -1038,7 +1027,7 @@ Widget smallButton(
                 borderRadius: BorderRadius.circular(5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.4),
+                    color: Colors.grey.withValues(alpha: 0.4),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -1150,7 +1139,7 @@ class _HintedTextFieldState extends State<HintedTextField> {
             widget.hint,
             style:
                 widget.textStyle ??
-                TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 24),
+                TextStyle(color: Colors.grey.withValues(alpha: 0.5), fontSize: 24),
           ),
         TextField(
           controller: widget.controller,

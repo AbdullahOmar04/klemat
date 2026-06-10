@@ -1,36 +1,204 @@
 {
   "levels": [
-    { "level": 1, "word": "كتاب" },
-    { "level": 2, "word": "مطبخ" },
-    { "level": 3, "word": "تفاح" },
-    { "level": 4, "word": "موزة" },
-    { "level": 5, "word": "دجاج" },
-    { "level": 6, "word": "سماء" },
-    { "level": 7, "word": "غيوم" },
-    { "level": 8, "word": "حفرة" },
-    { "level": 9, "word": "وردة" },
-    { "level": 10, "word": "لعبه" },
-
-    { "level": 11, "word": "كرسي" },
-    { "level": 12, "word": "قهوه" },
-    { "level": 13, "word": "هاتف" },
-    { "level": 14, "word": "قلمي" },
-    { "level": 15, "word": "علوم" },
-    { "level": 16, "word": "سمكه" },
-    { "level": 17, "word": "بحري" },
-    { "level": 18, "word": "بيتك" },
-    { "level": 19, "word": "نجوم" },
-    { "level": 20, "word": "شموس" },
-
-    { "level": 21, "word": "شكرا" },
-    { "level": 22, "word": "عقلك" },
-    { "level": 23, "word": "صحفي" },
-    { "level": 24, "word": "ربيع" },
-    { "level": 25, "word": "طبيب" },
-    { "level": 26, "word": "لغوي" },
-    { "level": 27, "word": "مبنى" },
-    { "level": 28, "word": "كلمة" },
-    { "level": 29, "word": "هندي" },
-    { "level": 30, "word": "نشاط" }
+    {
+      "level": 1,
+      "word": "كتاب"
+    },
+    {
+      "level": 2,
+      "word": "تفاح"
+    },
+    {
+      "level": 3,
+      "word": "بنات"
+    },
+    {
+      "level": 4,
+      "word": "جبال"
+    },
+    {
+      "level": 5,
+      "word": "نهار"
+    },
+    {
+      "level": 6,
+      "word": "ليلة"
+    },
+    {
+      "level": 7,
+      "word": "بحار"
+    },
+    {
+      "level": 8,
+      "word": "سماء"
+    },
+    {
+      "level": 9,
+      "word": "نجوم"
+    },
+    {
+      "level": 10,
+      "word": "غيوم"
+    },
+    {
+      "level": 11,
+      "word": "ثلوج"
+    },
+    {
+      "level": 12,
+      "word": "رياح"
+    },
+    {
+      "level": 13,
+      "word": "زهور"
+    },
+    {
+      "level": 14,
+      "word": "ورود"
+    },
+    {
+      "level": 15,
+      "word": "شجرة"
+    },
+    {
+      "level": 16,
+      "word": "ثمار"
+    },
+    {
+      "level": 17,
+      "word": "حليب"
+    },
+    {
+      "level": 18,
+      "word": "جبنة"
+    },
+    {
+      "level": 19,
+      "word": "عصير"
+    },
+    {
+      "level": 20,
+      "word": "قهوة"
+    },
+    {
+      "level": 21,
+      "word": "بيوت"
+    },
+    {
+      "level": 22,
+      "word": "غرفة"
+    },
+    {
+      "level": 23,
+      "word": "سرير"
+    },
+    {
+      "level": 24,
+      "word": "كرسي"
+    },
+    {
+      "level": 25,
+      "word": "مكتب"
+    },
+    {
+      "level": 26,
+      "word": "قلوب"
+    },
+    {
+      "level": 27,
+      "word": "عيون"
+    },
+    {
+      "level": 28,
+      "word": "وجوه"
+    },
+    {
+      "level": 29,
+      "word": "شعور"
+    },
+    {
+      "level": 30,
+      "word": "عقول"
+    },
+    {
+      "level": 31,
+      "word": "كلمة"
+    },
+    {
+      "level": 32,
+      "word": "كلام"
+    },
+    {
+      "level": 33,
+      "word": "ورقة"
+    },
+    {
+      "level": 34,
+      "word": "علوم"
+    },
+    {
+      "level": 35,
+      "word": "عامل"
+    },
+    {
+      "level": 36,
+      "word": "طبيب"
+    },
+    {
+      "level": 37,
+      "word": "مريض"
+    },
+    {
+      "level": 38,
+      "word": "معلم"
+    },
+    {
+      "level": 39,
+      "word": "طالب"
+    },
+    {
+      "level": 40,
+      "word": "مدير"
+    },
+    {
+      "level": 41,
+      "word": "بلاد"
+    },
+    {
+      "level": 42,
+      "word": "شارع"
+    },
+    {
+      "level": 43,
+      "word": "قطار"
+    },
+    {
+      "level": 44,
+      "word": "طريق"
+    },
+    {
+      "level": 45,
+      "word": "طيور"
+    },
+    {
+      "level": 46,
+      "word": "حصان"
+    },
+    {
+      "level": 47,
+      "word": "جمال"
+    },
+    {
+      "level": 48,
+      "word": "كلاب"
+    },
+    {
+      "level": 49,
+      "word": "سمكة"
+    },
+    {
+      "level": 50,
+      "word": "دجاج"
+    }
   ]
 }

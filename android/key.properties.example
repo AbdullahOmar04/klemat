@@ -1,0 +1,9 @@
+# Copy this file to `key.properties` (same folder) and fill in real values
+# AFTER generating your upload keystore. `key.properties` is git-ignored — never
+# commit it or the .jks file. Back both up somewhere safe (password manager).
+#
+# storeFile can be an absolute path, or relative to the android/app folder.
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=/home/abdullah-omar/keys/klemat-upload.jks
